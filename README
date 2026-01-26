@@ -1,28 +1,242 @@
+# Multi-Platform Social Media Publisher 🚀
 
-# Social media API
+Backend application in Go for publishing content across multiple social media platforms simultaneously.
 
-Social media api to post to all the Social media at the same time
+## Features ✨
 
+- 🔐 JWT Authentication
+- 📸 Image & Video Upload (Instagram, TikTok)
+- 🌐 Multi-platform publishing (Twitter, Facebook, LinkedIn, Instagram, TikTok)
+- ⏰ Post Scheduling
+- 💾 PostgreSQL Database
+- 🐳 Docker Support
 
+## Quick Start 🏃
 
-
-## Dependencies
-
-Install dependencies
-
-```go get github.com/gorilla/mux
-go get github.com/lib/pq
-go get github.com/golang-jwt/jwt/v5
-go get github.com/google/uuid
-go get golang.org/x/crypto/bcrypt
-go get github.com/robfig/cron/v3 
-```
-    
-## Run
-
-How to run the project
-
+### Option 1: Docker (Recommended)
 ```bash
-  go run main.go
+# Start all services
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop services
+make docker-down
 ```
 
+The API will be available at `http://localhost:8080`
+
+### Option 2: Local Development
+
+1. **Start PostgreSQL:**
+```bash
+make db-only
+```
+
+2. **Set environment variables:**
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+3. **Run the application:**
+```bash
+make run
+```
+
+## Installation 📦
+
+### Prerequisites
+- Go 1.21+
+- Docker & Docker Compose (for containerized setup)
+- PostgreSQL 15+ (for local setup)
+
+### Setup
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd multiplatform-publisher
+
+# Install dependencies
+make install
+
+# Start with Docker
+make docker-up
+```
+
+## API Documentation 📚
+
+### Authentication
+
+**Register**
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "senha123",
+  "name": "João Silva"
+}
+```
+
+**Login**
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "senha123"
+}
+```
+
+### Media Management
+
+**Upload Media**
+```bash
+POST /api/media
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: <image or video file>
+```
+
+**List Media**
+```bash
+GET /api/media
+Authorization: Bearer <token>
+```
+
+**Delete Media**
+```bash
+DELETE /api/media/{id}
+Authorization: Bearer <token>
+```
+
+### Post Management
+
+**Create & Publish Post**
+```bash
+POST /api/posts
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "content": "Hello from all platforms!",
+  "media_ids": ["media-id-1", "media-id-2"],
+  "platforms": ["twitter", "facebook", "instagram"]
+}
+```
+
+**Schedule Post**
+```bash
+POST /api/posts
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "content": "Scheduled post!",
+  "platforms": ["twitter", "linkedin"],
+  "scheduled_for": "2026-01-27T10:00:00Z"
+}
+```
+
+**List Posts**
+```bash
+GET /api/posts
+Authorization: Bearer <token>
+```
+
+**Get Single Post**
+```bash
+GET /api/posts/{id}
+Authorization: Bearer <token>
+```
+
+### Platform Credentials
+
+**Save Credentials**
+```bash
+POST /api/credentials
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "platform": "twitter",
+  "access_token": "your-twitter-token",
+  "secret": "your-twitter-secret"
+}
+```
+
+## Supported Platforms 🌐
+
+- **Twitter** - Text + Images
+- **Facebook** - Text + Images
+- **LinkedIn** - Text + Images
+- **Instagram** - Requires at least 1 image
+- **TikTok** - Requires 1 video
+
+## Environment Variables 🔧
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://postgres:postgres@localhost:5432/multiplatform?sslmode=disable` |
+| `JWT_SECRET` | Secret key for JWT tokens | `your-secret-key-change-in-production` |
+| `PORT` | Server port | `8080` |
+| `BASE_URL` | Base URL for file serving | `http://localhost:8080` |
+| `UPLOAD_DIR` | Directory for uploaded files | `./uploads` |
+
+## Project Structure 📁
+```
+multiplatform-publisher/
+├── config/          # Configuration
+├── models/          # Data models
+├── database/        # Database repositories
+├── services/        # Business logic
+├── publishers/      # Platform publishers
+├── handlers/        # HTTP handlers
+├── middleware/      # HTTP middleware
+└── utils/           # Utility functions
+```
+
+## Development 💻
+```bash
+# Run tests
+make test
+
+# Build binary
+make build
+
+# Clean artifacts
+make clean
+
+# Rebuild Docker
+make docker-rebuild
+
+# Connect to database
+make db-connect
+```
+
+## Production Deployment 🚀
+
+1. **Change JWT Secret:**
+```bash
+export JWT_SECRET="your-super-secure-random-key"
+```
+
+2. **Use production database:**
+```bash
+export DATABASE_URL="your-production-postgres-url"
+```
+
+3. **Build and deploy:**
+```bash
+make build
+./bin/multiplatform-app
+```
+
+## License 📄
+
+MIT License
