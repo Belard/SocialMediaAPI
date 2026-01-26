@@ -1,0 +1,13 @@
+## INSTAL DEPENDENCIES
+
+go get github.com/gorilla/mux
+go get github.com/lib/pq
+go get github.com/golang-jwt/jwt/v5
+go get github.com/google/uuid
+go get golang.org/x/crypto/bcrypt
+go get github.com/robfig/cron/v3 
+
+
+## RUN API
+
+go run main.go
