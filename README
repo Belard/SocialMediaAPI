@@ -1,13 +1,28 @@
-## INSTAL DEPENDENCIES
 
-go get github.com/gorilla/mux
+# Social media API
+
+Social media api to post to all the Social media at the same time
+
+
+
+
+## Dependencies
+
+Install dependencies
+
+```go get github.com/gorilla/mux
 go get github.com/lib/pq
 go get github.com/golang-jwt/jwt/v5
 go get github.com/google/uuid
 go get golang.org/x/crypto/bcrypt
 go get github.com/robfig/cron/v3 
+```
+    
+## Run
 
+How to run the project
 
-## RUN API
+```bash
+  go run main.go
+```
 
-go run main.go
