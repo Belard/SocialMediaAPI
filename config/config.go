@@ -3,12 +3,15 @@ package config
 import "os"
 
 type Config struct {
-	DatabaseURL string
-	JWTSecret   []byte
-	Port        string
-	BaseURL     string
-	UploadDir   string
-	MaxUploadSize int64
+	DatabaseURL 		 string
+	JWTSecret   		 []byte
+	Port        		 string
+	BaseURL     		 string
+	UploadDir   		 string
+	MaxUploadSize 		 int64
+    FacebookAppID        string
+    FacebookAppSecret    string
+    FacebookRedirectURI  string
 }
 
 func Load() *Config {
@@ -19,6 +22,9 @@ func Load() *Config {
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		UploadDir:     getEnv("UPLOAD_DIR", "./uploads"),
 		MaxUploadSize: 10 << 20, // 10 MB
+		FacebookAppID:        getEnv("FACEBOOK_APP_ID", ""), //ADD LATER
+		FacebookAppSecret:    getEnv("FACEBOOK_APP_SECRET", ""), //ADD LATER
+		FacebookRedirectURI:  getEnv("FACEBOOK_REDIRECT_URI", ""), //ADD LATER
 	}
 }
 

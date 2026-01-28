@@ -105,29 +105,3 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 
 	utils.RespondWithJSON(w, http.StatusOK, post)
 }
-
-func (h *Handler) SaveCredentials(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
-
-	var cred models.PlatformCredentials
-	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
-		return
-	}
-
-	if cred.Platform == "" || cred.AccessToken == "" {
-		utils.RespondWithError(w, http.StatusBadRequest, "Platform and access_token are required")
-		return
-	}
-
-	cred.ID = uuid.New().String()
-	cred.UserID = userID
-	cred.CreatedAt = time.Now()
-
-	if err := h.db.SaveCredentials(&cred); err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Error saving credentials")
-		return
-	}
-
-	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Credentials saved successfully"})
-}
