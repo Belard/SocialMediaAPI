@@ -12,6 +12,8 @@ type Config struct {
     FacebookAppID        string
     FacebookAppSecret    string
     FacebookRedirectURI  string
+	FacebookVersion      string
+	TokenEncryptionKey   []byte
 }
 
 func Load() *Config {
@@ -25,6 +27,8 @@ func Load() *Config {
 		FacebookAppID:        getEnv("FACEBOOK_APP_ID", ""), //ADD LATER
 		FacebookAppSecret:    getEnv("FACEBOOK_APP_SECRET", ""), //ADD LATER
 		FacebookRedirectURI:  getEnv("FACEBOOK_REDIRECT_URI", ""), //ADD LATER
+		FacebookVersion:      getEnv("FACEBOOK_VERSION", "v24.0"),
+		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
 	}
 }
 

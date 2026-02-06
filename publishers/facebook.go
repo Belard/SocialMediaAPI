@@ -1,12 +1,14 @@
 package publishers
 
 import (
+	"SocialMediaAPI/config"
+	"SocialMediaAPI/models"
+	"SocialMediaAPI/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"SocialMediaAPI/models"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -49,6 +51,19 @@ func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCred
 		}
 	}
 
+	// Check if token is expired
+	tokenValidator := utils.NewTokenValidator()
+	if tokenValidator.IsTokenExpired(cred) {
+		// Attempt to refresh the token
+		if err := tokenValidator.RefreshFacebookToken(cred); err != nil {
+			return models.PublishResult{
+				Platform: models.Facebook,
+				Success:  false,
+				Message:  fmt.Sprintf("Facebook token has expired and cannot be refreshed: %v", err),
+			}
+		}
+	}
+
 	// Get Page Access Token first
 	pageAccessToken, pageID, err := f.getPageAccessToken(cred.AccessToken)
 	if err != nil {
@@ -86,7 +101,8 @@ func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCred
 }
 
 func (f *FacebookPublisher) getPageAccessToken(userAccessToken string) (string, string, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/me/accounts?access_token=%s", userAccessToken)
+	cfg := config.Load()
+	url := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?access_token=%s", cfg.FacebookVersion, userAccessToken)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -99,7 +115,14 @@ func (f *FacebookPublisher) getPageAccessToken(userAccessToken string) (string, 
 	if resp.StatusCode != http.StatusOK {
 		var fbError FacebookErrorResponse
 		json.Unmarshal(body, &fbError)
-		return "", "", fmt.Errorf("Facebook API error: %s", fbError.Error.Message)
+		
+		// Check for token expiration error
+		tokenValidator := utils.NewTokenValidator()
+		if tokenValidator.IsFacebookTokenExpiredError(body) {
+			return "", "", fmt.Errorf("access token has expired (error code: %d)", fbError.Error.Code)
+		}
+		
+		return "", "", fmt.Errorf("Facebook API error: %s (code: %d)", fbError.Error.Message, fbError.Error.Code)
 	}
 
 	var pageResp FacebookPageResponse
@@ -117,7 +140,8 @@ func (f *FacebookPublisher) getPageAccessToken(userAccessToken string) (string, 
 }
 
 func (f *FacebookPublisher) publishTextOnly(post *models.Post, pageAccessToken, pageID string) (string, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/feed", pageID)
+	cfg := config.Load()
+	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/feed", cfg.FacebookVersion, pageID)
 
 	payload := map[string]string{
 		"message":      post.Content,
@@ -162,7 +186,8 @@ func (f *FacebookPublisher) publishWithMedia(post *models.Post, pageAccessToken,
 }
 
 func (f *FacebookPublisher) publishSinglePhoto(post *models.Post, pageAccessToken, pageID string) (string, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/photos", pageID)
+	cfg := config.Load()
+	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/photos", cfg.FacebookVersion, pageID)
 
 	// Create multipart form
 	body := &bytes.Buffer{}
@@ -234,7 +259,8 @@ func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessT
 	}
 
 	// Step 2: Create a post with all photos
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/feed", pageID)
+	cfg := config.Load()
+	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/feed", cfg.FacebookVersion, pageID)
 
 	// Build attached_media parameter
 	attachedMedia := []map[string]string{}
@@ -275,7 +301,8 @@ func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessT
 }
 
 func (f *FacebookPublisher) uploadPhotoUnpublished(media *models.Media, pageAccessToken, pageID string) (string, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/photos", pageID)
+	cfg := config.Load()
+	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/photos", cfg.FacebookVersion, pageID)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

@@ -63,12 +63,16 @@ type Post struct {
 }
 
 type PlatformCredentials struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"user_id"`
-	Platform    Platform  `json:"platform"`
-	AccessToken string    `json:"-"`
-	Secret      string    `json:"-"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	UserID       string    `json:"user_id"`
+	Platform     Platform  `json:"platform"`
+	AccessToken  string    `json:"-"`
+	RefreshToken string    `json:"-"`
+	Secret       string    `json:"-"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	TokenType    string    `json:"token_type"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type PublishResult struct {

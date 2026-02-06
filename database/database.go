@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+
 	_ "github.com/lib/pq"
 )
 
@@ -66,8 +67,12 @@ func (d *Database) createTables() error {
 			user_id VARCHAR(255) NOT NULL,
 			platform VARCHAR(50) NOT NULL,
 			access_token TEXT NOT NULL,
+			refresh_token TEXT,
 			secret TEXT,
+			token_type VARCHAR(50) DEFAULT 'Bearer',
+			expires_at TIMESTAMP,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(user_id, platform),
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,

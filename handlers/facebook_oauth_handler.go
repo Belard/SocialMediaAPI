@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"SocialMediaAPI/config"
 	"SocialMediaAPI/models"
 	"SocialMediaAPI/utils"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -31,7 +31,8 @@ func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	authURL := fmt.Sprintf(
-		"https://www.facebook.com/v18.0/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content",
+		"https://www.facebook.com/%s/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content",
+		cfg.FacebookVersion,
 		cfg.FacebookAppID,
 		url.QueryEscape(cfg.FacebookRedirectURI),
 		state,
@@ -79,11 +80,18 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	userID := oauthState.UserID
 
 	// Exchange code for access token
-	accessToken, _, err := h.exchangeCodeForFacebookToken(code)
+	accessToken, expiresIn, err := h.exchangeCodeForFacebookToken(code)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=token_exchange&description=%s", 
 			url.QueryEscape(err.Error())), http.StatusFound)
 		return
+	}
+
+	// Calculate expiration time
+	var expiresAt *time.Time
+	if expiresIn > 0 {
+		expTime := time.Now().Add(time.Duration(expiresIn) * time.Second)
+		expiresAt = &expTime
 	}
 
 	// Save credentials to database
@@ -92,7 +100,10 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 		UserID:      userID,
 		Platform:    models.Facebook,
 		AccessToken: accessToken,
+		TokenType:   "Bearer",
+		ExpiresAt:   expiresAt,
 		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	if err := h.db.SaveCredentials(cred); err != nil {
@@ -109,7 +120,8 @@ func (h *Handler) exchangeCodeForFacebookToken(code string) (string, int, error)
 	cfg := config.Load()
 
 	tokenURL := fmt.Sprintf(
-		"https://graph.facebook.com/v18.0/oauth/access_token?client_id=%s&client_secret=%s&redirect_uri=%s&code=%s",
+		"https://graph.facebook.com/%s/oauth/access_token?client_id=%s&client_secret=%s&redirect_uri=%s&code=%s",
+		cfg.FacebookVersion,
 		cfg.FacebookAppID,
 		cfg.FacebookAppSecret,
 		url.QueryEscape(cfg.FacebookRedirectURI),
