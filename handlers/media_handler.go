@@ -11,7 +11,11 @@ import (
 )
 
 func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	if err := r.ParseMultipartForm(config.Load().MaxUploadSize); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "File too large")
@@ -41,7 +45,11 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetMedia(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	mediaList, err := h.db.GetUserMedia(userID)
 	if err != nil {
@@ -53,7 +61,11 @@ func (h *Handler) GetMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 	vars := mux.Vars(r)
 	mediaID := vars["id"]
 

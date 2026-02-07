@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var facebookHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 // InitiateFacebookOAuth starts the Facebook OAuth flow
 func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user ID from JWT (safe type assertion)
@@ -142,13 +144,16 @@ func (h *Handler) exchangeCodeForFacebookToken(code string) (string, int, error)
 		code,
 	)
 
-	resp, err := http.Get(tokenURL)
+	resp, err := facebookHTTPClient.Get(tokenURL)
 	if err != nil {
 		return "", 0, err
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", 0, err
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return "", 0, fmt.Errorf("Facebook API error: %s", string(body))
@@ -175,7 +180,7 @@ func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, e
 	// Get the authenticated user's ID
 	userURL := fmt.Sprintf("https://graph.facebook.com/%s/me?access_token=%s", cfg.FacebookVersion, accessToken)
 	
-	resp, err := http.Get(userURL)
+	resp, err := facebookHTTPClient.Get(userURL)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to fetch Facebook user info: %w", err)
 	}
@@ -186,7 +191,10 @@ func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, e
 		return "", "", fmt.Errorf("Facebook API error: %s", string(body))
 	}
 
-	bodyData, _ := io.ReadAll(resp.Body)
+	bodyData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read Facebook user response: %w", err)
+	}
 	var userResp struct {
 		ID string `json:"id"`
 	}
@@ -200,7 +208,7 @@ func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, e
 	// Get the user's pages (fetch first page as primary)
 	pagesURL := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?access_token=%s", cfg.FacebookVersion, accessToken)
 	
-	resp, err = http.Get(pagesURL)
+	resp, err = facebookHTTPClient.Get(pagesURL)
 	if err != nil {
 		return facebookUserID, "", fmt.Errorf("failed to fetch Facebook pages: %w", err)
 	}
@@ -217,7 +225,10 @@ func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, e
 		} `json:"data"`
 	}
 
-	bodyData, _ = io.ReadAll(resp.Body)
+	bodyData, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return facebookUserID, "", fmt.Errorf("failed to read Facebook pages response: %w", err)
+	}
 	if err := json.Unmarshal(bodyData, &pagesResp); err != nil {
 		return facebookUserID, "", fmt.Errorf("failed to parse Facebook pages response: %w", err)
 	}

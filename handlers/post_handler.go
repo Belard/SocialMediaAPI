@@ -12,7 +12,11 @@ import (
 )
 
 func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	var post models.Post
 	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
@@ -76,7 +80,11 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPosts(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	posts, err := h.db.GetUserPosts(userID)
 	if err != nil {
@@ -88,7 +96,11 @@ func (h *Handler) GetPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 	vars := mux.Vars(r)
 	postID := vars["id"]
 

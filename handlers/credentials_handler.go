@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
 	"SocialMediaAPI/models"
 	"SocialMediaAPI/utils"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -13,7 +13,11 @@ import (
 
 // SaveCredentials saves platform credentials for the authenticated user
 func (h *Handler) SaveCredentials(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	var cred models.PlatformCredentials
 	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
@@ -42,7 +46,11 @@ func (h *Handler) SaveCredentials(w http.ResponseWriter, r *http.Request) {
 
 // GetConnectedPlatforms returns which platforms the user has connected
 func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	query := `SELECT platform, created_at FROM credentials WHERE user_id = $1`
 
@@ -63,8 +71,15 @@ func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) 
 	for rows.Next() {
 		var platform string
 		var createdAt time.Time
-		rows.Scan(&platform, &createdAt)
+		if err := rows.Scan(&platform, &createdAt); err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Error reading credentials")
+			return
+		}
 		connectedMap[platform] = createdAt
+	}
+	if err := rows.Err(); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error reading credentials")
+		return
 	}
 
 	// All platforms
@@ -100,7 +115,11 @@ func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) 
 
 // DisconnectPlatform removes credentials for a specific platform
 func (h *Handler) DisconnectPlatform(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	var req struct {
 		Platform string `json:"platform"`
