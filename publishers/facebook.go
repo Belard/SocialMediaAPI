@@ -12,10 +12,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
-type FacebookPublisher struct{}
+type FacebookPublisher struct{
+	client *http.Client
+}
 
 type FacebookPageResponse struct {
 	Data []struct {
@@ -100,11 +103,32 @@ func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCred
 	}
 }
 
+// NewFacebookPublisher creates a FacebookPublisher with an injectable http.Client.
+// If nil is passed, a default client with a sensible timeout is used.
+func NewFacebookPublisher(client *http.Client) *FacebookPublisher {
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	return &FacebookPublisher{client: client}
+}
+
+func (f *FacebookPublisher) httpClient() *http.Client {
+	if f.client == nil {
+		f.client = &http.Client{Timeout: 30 * time.Second}
+	}
+	return f.client
+}
+
 func (f *FacebookPublisher) getPageAccessToken(userAccessToken string) (string, string, error) {
 	cfg := config.Load()
-	url := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?access_token=%s", cfg.FacebookVersion, userAccessToken)
+	url := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts", cfg.FacebookVersion)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+userAccessToken)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return "", "", err
 	}
@@ -145,12 +169,17 @@ func (f *FacebookPublisher) publishTextOnly(post *models.Post, pageAccessToken, 
 
 	payload := map[string]string{
 		"message":      post.Content,
-		"access_token": pageAccessToken,
 	}
 
 	jsonData, _ := json.Marshal(payload)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -186,76 +215,47 @@ func (f *FacebookPublisher) publishWithMedia(post *models.Post, pageAccessToken,
 }
 
 func (f *FacebookPublisher) publishSinglePhoto(post *models.Post, pageAccessToken, pageID string) (string, error) {
-	cfg := config.Load()
-	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/photos", cfg.FacebookVersion, pageID)
-
-	// Create multipart form
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Add image file
 	media := post.Media[0]
-	file, err := os.Open(media.Path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	part, err := writer.CreateFormFile("source", filepath.Base(media.Path))
-	if err != nil {
-		return "", err
-	}
-	io.Copy(part, file)
-
-	// Add fields
-	writer.WriteField("message", post.Content)
-	writer.WriteField("access_token", pageAccessToken)
-
-	writer.Close()
-
-	req, err := http.NewRequest("POST", url, body)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		var fbError FacebookErrorResponse
-		json.Unmarshal(respBody, &fbError)
-		return "", fmt.Errorf("Facebook API error: %s", fbError.Error.Message)
-	}
-
-	var photoResp FacebookPhotoResponse
-	if err := json.Unmarshal(respBody, &photoResp); err != nil {
-		return "", err
-	}
-
-	return photoResp.ID, nil
+	return f.uploadPhoto(media, pageAccessToken, pageID, true, post.Content)
 }
 
 func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessToken, pageID string) (string, error) {
-	// Step 1: Upload all photos without publishing
+	// Step 1: Upload all photos without publishing (bounded concurrency)
 	photoIDs := []string{}
+	var mu sync.Mutex
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
 
 	for _, media := range post.Media {
 		if media.Type != models.MediaImage {
 			continue
 		}
+		m := media
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		photoID, err := f.uploadPhotoUnpublished(media, pageAccessToken, pageID)
-		if err != nil {
-			return "", err
-		}
-		photoIDs = append(photoIDs, photoID)
+			photoID, err := f.uploadPhoto(m, pageAccessToken, pageID, false, "")
+			if err != nil {
+				select {
+				case errCh <- err:
+				default:
+				}
+				return
+			}
+			mu.Lock()
+			photoIDs = append(photoIDs, photoID)
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	select {
+	case e := <-errCh:
+		return "", e
+	default:
 	}
 
 	// Step 2: Create a post with all photos
@@ -273,12 +273,17 @@ func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessT
 	payload := map[string]interface{}{
 		"message":        post.Content,
 		"attached_media": attachedMedia,
-		"access_token":   pageAccessToken,
 	}
 
 	jsonData, _ := json.Marshal(payload)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -301,6 +306,11 @@ func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessT
 }
 
 func (f *FacebookPublisher) uploadPhotoUnpublished(media *models.Media, pageAccessToken, pageID string) (string, error) {
+	return f.uploadPhoto(media, pageAccessToken, pageID, false, "")
+}
+
+// uploadPhoto uploads a photo to the page. If published is false the photo will be uploaded unpublished.
+func (f *FacebookPublisher) uploadPhoto(media *models.Media, pageAccessToken, pageID string, published bool, message string) (string, error) {
 	cfg := config.Load()
 	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/photos", cfg.FacebookVersion, pageID)
 
@@ -317,10 +327,16 @@ func (f *FacebookPublisher) uploadPhotoUnpublished(media *models.Media, pageAcce
 	if err != nil {
 		return "", err
 	}
-	io.Copy(part, file)
+	if _, err := io.Copy(part, file); err != nil {
+		return "", err
+	}
 
-	writer.WriteField("published", "false")
-	writer.WriteField("access_token", pageAccessToken)
+	if message != "" {
+		writer.WriteField("message", message)
+	}
+	if !published {
+		writer.WriteField("published", "false")
+	}
 
 	writer.Close()
 
@@ -329,9 +345,9 @@ func (f *FacebookPublisher) uploadPhotoUnpublished(media *models.Media, pageAcce
 		return "", err
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return "", err
 	}

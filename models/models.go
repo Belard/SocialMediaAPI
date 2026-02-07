@@ -63,16 +63,19 @@ type Post struct {
 }
 
 type PlatformCredentials struct {
-	ID           string    `json:"id"`
-	UserID       string    `json:"user_id"`
-	Platform     Platform  `json:"platform"`
-	AccessToken  string    `json:"-"`
-	RefreshToken string    `json:"-"`
-	Secret       string    `json:"-"`
-	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
-	TokenType    string    `json:"token_type"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	UserID           string    `json:"user_id"`
+	Platform         Platform  `json:"platform"`
+	AccessToken      string    `json:"-"`
+	RefreshToken     string    `json:"-"`
+	Secret           string    `json:"-"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	TokenType        string    `json:"token_type"`
+	// Platform-independent identity fields
+	PlatformUserID   string    `json:"platform_user_id,omitempty"`
+	PlatformPageID   string    `json:"platform_page_id,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type PublishResult struct {

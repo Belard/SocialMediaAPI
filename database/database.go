@@ -71,6 +71,8 @@ func (d *Database) createTables() error {
 			secret TEXT,
 			token_type VARCHAR(50) DEFAULT 'Bearer',
 			expires_at TIMESTAMP,
+			platform_user_id VARCHAR(255),
+			platform_page_id VARCHAR(255),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(user_id, platform),

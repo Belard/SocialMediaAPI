@@ -29,23 +29,28 @@ func (d *Database) SaveCredentials(cred *models.PlatformCredentials) error {
 		}
 	}
 
-	query := `INSERT INTO credentials (id, user_id, platform, access_token, refresh_token, secret, token_type, expires_at, created_at, updated_at)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	query := `INSERT INTO credentials (id, user_id, platform, access_token, refresh_token, secret, token_type, expires_at, 
+			  platform_user_id, platform_page_id, created_at, updated_at)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			  ON CONFLICT (user_id, platform) 
-			  DO UPDATE SET access_token = $4, refresh_token = $5, secret = $6, token_type = $7, expires_at = $8, updated_at = $10`
+			  DO UPDATE SET access_token = $4, refresh_token = $5, secret = $6, token_type = $7, expires_at = $8, 
+			  platform_user_id = $9, platform_page_id = $10, updated_at = $12`
 
 	_, err = d.DB.Exec(query, cred.ID, cred.UserID, cred.Platform,
-		encryptedAccessToken, encryptedRefreshToken, encryptedSecret, cred.TokenType, cred.ExpiresAt, cred.CreatedAt, cred.UpdatedAt)
+		encryptedAccessToken, encryptedRefreshToken, encryptedSecret, cred.TokenType, cred.ExpiresAt,
+		cred.PlatformUserID, cred.PlatformPageID, cred.CreatedAt, cred.UpdatedAt)
 	return err
 }
 
 func (d *Database) GetCredentials(userID string, platform models.Platform) (*models.PlatformCredentials, error) {
 	cred := &models.PlatformCredentials{}
-	query := `SELECT id, user_id, platform, access_token, refresh_token, secret, token_type, expires_at, created_at, updated_at
+	query := `SELECT id, user_id, platform, access_token, refresh_token, secret, token_type, expires_at,
+			  platform_user_id, platform_page_id, created_at, updated_at
 			  FROM credentials WHERE user_id = $1 AND platform = $2`
 
 	err := d.DB.QueryRow(query, userID, platform).Scan(&cred.ID, &cred.UserID,
-		&cred.Platform, &cred.AccessToken, &cred.RefreshToken, &cred.Secret, &cred.TokenType, &cred.ExpiresAt, &cred.CreatedAt, &cred.UpdatedAt)
+		&cred.Platform, &cred.AccessToken, &cred.RefreshToken, &cred.Secret, &cred.TokenType, &cred.ExpiresAt,
+		&cred.PlatformUserID, &cred.PlatformPageID, &cred.CreatedAt, &cred.UpdatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

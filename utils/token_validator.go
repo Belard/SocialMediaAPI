@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -41,19 +42,57 @@ func (t *TokenValidator) ValidateFacebookToken(accessToken string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// RefreshFacebookToken attempts to refresh a Facebook token
-// Note: Facebook User Tokens need to be obtained with long_lived_token during OAuth
-// This function validates the token and returns it if still valid
+// RefreshFacebookToken attempts to exchange a short-lived token for a long-lived one
+// For Facebook, user tokens can be exchanged once for a 60-day long-lived token
+// This should be called immediately after getting the initial token from OAuth
 func (t *TokenValidator) RefreshFacebookToken(cred *models.PlatformCredentials) error {
+	cfg := config.Load()
+	
 	// Check if token is still valid via API call
-	if t.ValidateFacebookToken(cred.AccessToken) {
-		// Token is still valid, extend expiration by typical duration
-		newExpiry := time.Now().Add(60 * 24 * time.Hour) // Assume 60 days for long-lived tokens
+	if !t.ValidateFacebookToken(cred.AccessToken) {
+		return fmt.Errorf("token is no longer valid and cannot be refreshed")
+	}
+
+	// Attempt to exchange for long-lived token
+	// Facebook allows exchanging user tokens for long-lived versions (60 days)
+	exchangeURL := fmt.Sprintf(
+		"https://graph.facebook.com/%s/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s",
+		cfg.FacebookVersion,
+		cfg.FacebookAppID,
+		cfg.FacebookAppSecret,
+		cred.AccessToken,
+	)
+
+	resp, err := http.Get(exchangeURL)
+	if err != nil {
+		// Exchange failed, but token is still valid - just extend current expiry
+		newExpiry := time.Now().Add(24 * time.Hour)
+		cred.ExpiresAt = &newExpiry
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		// Exchange failed, but token is still valid
+		newExpiry := time.Now().Add(24 * time.Hour)
 		cred.ExpiresAt = &newExpiry
 		return nil
 	}
 
-	return fmt.Errorf("token is no longer valid and cannot be refreshed")
+	// Successfully exchanged for long-lived token
+	cred.AccessToken = tokenResp.AccessToken
+	if tokenResp.ExpiresIn > 0 {
+		newExpiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+		cred.ExpiresAt = &newExpiry
+	}
+	return nil
 }
 
 // GetFacebookErrorCode extracts error code from Facebook API response

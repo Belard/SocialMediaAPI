@@ -16,8 +16,12 @@ import (
 
 // InitiateFacebookOAuth starts the Facebook OAuth flow
 func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) {
-	// Get authenticated user ID from JWT
-	userID := r.Context().Value("userID").(string)
+	// Get authenticated user ID from JWT (safe type assertion)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		utils.RespondWithError(w, http.StatusUnauthorized, "User ID not found in request context")
+		return
+	}
 
 	// Generate secure state token that includes userID
 	state := h.oauthStateService.GenerateState(userID, "facebook")
@@ -31,7 +35,7 @@ func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	authURL := fmt.Sprintf(
-		"https://www.facebook.com/%s/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content",
+		"https://www.facebook.com/%s/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts",
 		cfg.FacebookVersion,
 		cfg.FacebookAppID,
 		url.QueryEscape(cfg.FacebookRedirectURI),
@@ -87,6 +91,14 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Fetch Facebook user ID and page info (bind token to identity)
+	facebookUserID, pageID, err := h.getFacebookUserIdentity(accessToken)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=identity_fetch&description=%s", 
+			url.QueryEscape(err.Error())), http.StatusFound)
+		return
+	}
+
 	// Calculate expiration time
 	var expiresAt *time.Time
 	if expiresIn > 0 {
@@ -94,16 +106,18 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 		expiresAt = &expTime
 	}
 
-	// Save credentials to database
+	// Save credentials to database with identity binding
 	cred := &models.PlatformCredentials{
-		ID:          uuid.New().String(),
-		UserID:      userID,
-		Platform:    models.Facebook,
-		AccessToken: accessToken,
-		TokenType:   "Bearer",
-		ExpiresAt:   expiresAt,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:             uuid.New().String(),
+		UserID:         userID,
+		Platform:       models.Facebook,
+		AccessToken:    accessToken,
+		TokenType:      "Bearer",
+		ExpiresAt:      expiresAt,
+		PlatformUserID: facebookUserID,
+		PlatformPageID: pageID,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	if err := h.db.SaveCredentials(cred); err != nil {
@@ -151,4 +165,67 @@ func (h *Handler) exchangeCodeForFacebookToken(code string) (string, int, error)
 	}
 
 	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
+}
+
+// getFacebookUserIdentity fetches the Facebook user ID and primary page ID
+// This binds the token to a specific Facebook identity
+func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, error) {
+	cfg := config.Load()
+
+	// Get the authenticated user's ID
+	userURL := fmt.Sprintf("https://graph.facebook.com/%s/me?access_token=%s", cfg.FacebookVersion, accessToken)
+	
+	resp, err := http.Get(userURL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to fetch Facebook user info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", "", fmt.Errorf("Facebook API error: %s", string(body))
+	}
+
+	bodyData, _ := io.ReadAll(resp.Body)
+	var userResp struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.Unmarshal(bodyData, &userResp); err != nil {
+		return "", "", fmt.Errorf("failed to parse Facebook user response: %w", err)
+	}
+
+	facebookUserID := userResp.ID
+
+	// Get the user's pages (fetch first page as primary)
+	pagesURL := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?access_token=%s", cfg.FacebookVersion, accessToken)
+	
+	resp, err = http.Get(pagesURL)
+	if err != nil {
+		return facebookUserID, "", fmt.Errorf("failed to fetch Facebook pages: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return facebookUserID, "", fmt.Errorf("Facebook pages API error: %s", string(body))
+	}
+
+	var pagesResp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+
+	bodyData, _ = io.ReadAll(resp.Body)
+	if err := json.Unmarshal(bodyData, &pagesResp); err != nil {
+		return facebookUserID, "", fmt.Errorf("failed to parse Facebook pages response: %w", err)
+	}
+
+	pageID := ""
+	if len(pagesResp.Data) > 0 {
+		pageID = pagesResp.Data[0].ID
+	}
+
+	return facebookUserID, pageID, nil
 }
