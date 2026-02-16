@@ -1,4 +1,4 @@
-.PHONY: help build run dev docker-up docker-down docker-logs clean test
+.PHONY: help build run dev docker-up docker-down docker-logs clean test smoke-facebook-oauth smoke
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -35,6 +35,11 @@ clean: ## Clean build artifacts
 
 test: ## Run tests
 	go test -v ./...
+
+smoke-facebook-oauth: ## Run OAuth-only Facebook API smoke test (requires running API)
+	bash ./test/smoke/facebook_oauth_smoke.sh
+
+smoke: test smoke-facebook-oauth ## Run unit tests and smoke test suite
 
 install: ## Install dependencies
 	go mod download

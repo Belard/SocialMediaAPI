@@ -19,12 +19,14 @@ services:
   app:
     build: .
     container_name: multiplatform-app
+    env_file:
+      - .env
     environment:
+      # Container-specific overrides (override values from .env when needed)
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/multiplatform?sslmode=disable
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      PORT: 8080
-      BASE_URL: http://localhost:8080
       UPLOAD_DIR: /app/uploads
+      BASE_URL: http://localhost:8080
+      PORT: 8080
     ports:
       - "8080:8080"
     volumes:
