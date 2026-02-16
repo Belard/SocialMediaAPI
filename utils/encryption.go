@@ -6,30 +6,25 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"io"
+)
+
+var (
+	errInvalidEncryptionKeyLength = errors.New("TOKEN_ENCRYPTION_KEY must be exactly 32 bytes for AES-256")
+	errCiphertextTooShort         = errors.New("encrypted token is too short or malformed")
 )
 
 // EncryptToken encrypts a token using AES-256-GCM
 // The encryption key is read from TOKEN_ENCRYPTION_KEY environment variable
 func EncryptToken(token string) (string, error) {
-	cfg := config.Load()
-	key := cfg.TokenEncryptionKey
-	if len(key) == 0 {
-		// If no key is set, return token as-is (not recommended for production)
-		// In production, this should fail or generate a key
-		return token, nil
+	keyBytes, err := getEncryptionKey()
+	if err != nil {
+		return "", err
 	}
-
-	// Ensure key is 32 bytes for AES-256
-	keyBytes := []byte(key)
-	if len(keyBytes) < 32 {
-		// Pad with zeros if shorter
-		padded := make([]byte, 32)
-		copy(padded, keyBytes)
-		keyBytes = padded
-	} else if len(keyBytes) > 32 {
-		// Truncate if longer
-		keyBytes = keyBytes[:32]
+	if len(keyBytes) == 0 {
+		// If no key is set, return token as-is (not recommended for production)
+		return token, nil
 	}
 
 	block, err := aes.NewCipher(keyBytes)
@@ -53,23 +48,13 @@ func EncryptToken(token string) (string, error) {
 
 // DecryptToken decrypts a token encrypted with EncryptToken
 func DecryptToken(encryptedToken string) (string, error) {
-	cfg := config.Load()
-	key := cfg.TokenEncryptionKey
-	if len(key) == 0 {
+	keyBytes, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
+	if len(keyBytes) == 0 {
 		// If no key is set, assume token wasn't encrypted
 		return encryptedToken, nil
-	}
-
-	// Ensure key is 32 bytes for AES-256
-	keyBytes := []byte(key)
-	if len(keyBytes) < 32 {
-		// Pad with zeros if shorter
-		padded := make([]byte, 32)
-		copy(padded, keyBytes)
-		keyBytes = padded
-	} else if len(keyBytes) > 32 {
-		// Truncate if longer
-		keyBytes = keyBytes[:32]
 	}
 
 	block, err := aes.NewCipher(keyBytes)
@@ -88,8 +73,9 @@ func DecryptToken(encryptedToken string) (string, error) {
 	}
 
 	nonceSize := gcm.NonceSize()
-	if len(data) < nonceSize {
-		return "", err
+	minSize := nonceSize + gcm.Overhead()
+	if len(data) < minSize {
+		return "", errCiphertextTooShort
 	}
 
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
@@ -99,4 +85,19 @@ func DecryptToken(encryptedToken string) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+func getEncryptionKey() ([]byte, error) {
+	cfg := config.Load()
+	key := cfg.TokenEncryptionKey
+	if len(key) == 0 {
+		return nil, nil
+	}
+
+	keyBytes := []byte(key)
+	if len(keyBytes) != 32 {
+		return nil, errInvalidEncryptionKeyLength
+	}
+
+	return keyBytes, nil
 }
