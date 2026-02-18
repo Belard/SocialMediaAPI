@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-
 func main() {
 	cfg := config.Load()
 
@@ -30,7 +29,7 @@ func main() {
 	authService := services.NewAuthService(db)
 	publisher := services.NewPublisherService(db)
 	oauthStateService := services.NewOAuthStateService()
-	
+
 	scheduler := services.NewScheduler(db, publisher)
 	scheduler.Start()
 	defer scheduler.Stop()
@@ -58,13 +57,14 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 
 	// OAuth routes (public - no JWT required for callback)
 	r.HandleFunc("/auth/facebook/callback", h.HandleFacebookCallback).Methods("GET")
+	r.HandleFunc("/auth/instagram/callback", h.HandleInstagramCallback).Methods("GET")
 
 	r.HandleFunc("/oauth/success", h.OAuthSuccessPage).Methods("GET")
 	r.HandleFunc("/oauth/error", h.OAuthErrorPage).Methods("GET")
 
 	// Static file serving
 	uploadDir := config.Load().UploadDir
-	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", 
+	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/",
 		http.FileServer(http.Dir(uploadDir))))
 
 	// Protected routes
@@ -73,17 +73,18 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 
 	// Facebook OAuth (requires JWT)
 	protected.HandleFunc("/auth/facebook", h.InitiateFacebookOAuth).Methods("GET")
-	
+	protected.HandleFunc("/auth/instagram", h.InitiateInstagramOAuth).Methods("GET")
+
 	// Credentials
 	protected.HandleFunc("/credentials", h.SaveCredentials).Methods("POST")
 	protected.HandleFunc("/credentials/status", h.GetConnectedPlatforms).Methods("GET")
 	protected.HandleFunc("/credentials/disconnect", h.DisconnectPlatform).Methods("DELETE")
-	
+
 	// Media
 	protected.HandleFunc("/media", h.UploadMedia).Methods("POST")
 	protected.HandleFunc("/media", h.GetMedia).Methods("GET")
 	protected.HandleFunc("/media/{id}", h.DeleteMedia).Methods("DELETE")
-	
+
 	// Posts
 	protected.HandleFunc("/posts", h.CreatePost).Methods("POST")
 	protected.HandleFunc("/posts", h.GetPosts).Methods("GET")
@@ -97,7 +98,9 @@ func printEndpoints() {
 	log.Println("  POST   /api/auth/register         - Register new user")
 	log.Println("  POST   /api/auth/login            - Login")
 	log.Println("  GET    /api/auth/facebook         - Initiate Facebook OAuth (auth)")
+	log.Println("  GET    /api/auth/instagram        - Initiate Instagram OAuth (auth)")
 	log.Println("  GET    /auth/facebook/callback    - Facebook OAuth callback")
+	log.Println("  GET    /auth/instagram/callback   - Instagram OAuth callback")
 	log.Println("  GET    /oauth/success             - OAuth success page")
 	log.Println("  GET    /oauth/error               - OAuth error page")
 	log.Println("  GET    /api/credentials/status    - Get connected platforms (auth)")

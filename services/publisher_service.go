@@ -20,7 +20,7 @@ func NewPublisherService(db *database.Database) *PublisherService {
 			models.Twitter:   &publishers.TwitterPublisher{},
 			models.Facebook:  publishers.NewFacebookPublisher(nil),
 			models.LinkedIn:  &publishers.LinkedInPublisher{},
-			models.Instagram: &publishers.InstagramPublisher{},
+			models.Instagram: publishers.NewInstagramPublisher(nil),
 			models.TikTok:    &publishers.TikTokPublisher{},
 		},
 	}
@@ -55,9 +55,23 @@ func (ps *PublisherService) PublishPost(post *models.Post) []models.PublishResul
 
 	wg.Wait()
 
-	now := time.Now()
-	post.PublishedAt = &now
-	post.Status = models.StatusPublished
+	allSucceeded := len(results) > 0
+	for _, result := range results {
+		if !result.Success {
+			allSucceeded = false
+			break
+		}
+	}
+
+	if allSucceeded {
+		now := time.Now()
+		post.PublishedAt = &now
+		post.Status = models.StatusPublished
+	} else {
+		post.PublishedAt = nil
+		post.Status = models.StatusFailed
+	}
+
 	post.UpdatedAt = time.Now()
 	ps.db.UpdatePost(post)
 

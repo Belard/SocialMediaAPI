@@ -1,0 +1,284 @@
+{
+  "info": {
+    "_postman_id": "a2f4ff8e-2c31-4a5d-92f8-8e7f4d1b2b4e",
+    "name": "SocialMediaAPI - Full Endpoint Test",
+    "description": "Complete endpoint coverage for SocialMediaAPI (from main.go routes).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "jwt_token", "value": "" },
+    { "key": "user_id", "value": "" },
+    { "key": "post_id", "value": "" },
+    { "key": "media_id", "value": "" },
+    { "key": "uploaded_filename", "value": "" },
+    { "key": "user_email", "value": "test@example.com" },
+    { "key": "user_password", "value": "Test@123456" }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"name\": \"Test User\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login (sets jwt_token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is success', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.token) {",
+                  "  pm.collectionVariables.set('jwt_token', data.token);",
+                  "}",
+                  "if (data.user && data.user.id) {",
+                  "  pm.collectionVariables.set('user_id', data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "OAuth",
+      "item": [
+        {
+          "name": "Initiate Facebook OAuth (Auth Required)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/auth/facebook"
+          }
+        },
+        {
+          "name": "Initiate Instagram OAuth (Auth Required)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/auth/instagram"
+          }
+        },
+        {
+          "name": "Facebook OAuth Callback (manual test)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/facebook/callback?code=TEST_CODE&state=TEST_STATE"
+          }
+        },
+        {
+          "name": "Instagram OAuth Callback (manual test)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/instagram/callback?code=TEST_CODE&state=TEST_STATE"
+          }
+        },
+        {
+          "name": "OAuth Success Page",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/oauth/success?platform=instagram"
+          }
+        },
+        {
+          "name": "OAuth Error Page",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/oauth/error?error=sample_error&description=sample_description"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Credentials (Auth Required)",
+      "item": [
+        {
+          "name": "Save Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"facebook\",\n  \"access_token\": \"YOUR_ACCESS_TOKEN\",\n  \"refresh_token\": \"YOUR_REFRESH_TOKEN\",\n  \"expires_at\": \"2026-12-31T23:59:59Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/credentials"
+          }
+        },
+        {
+          "name": "Get Connected Platforms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/credentials/status"
+          }
+        },
+        {
+          "name": "Disconnect Platform",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"facebook\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/credentials/disconnect"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media (Auth Required)",
+      "item": [
+        {
+          "name": "Upload Media (sets media_id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('media_id', data.id);",
+                  "if (data.media && data.media.id) pm.collectionVariables.set('media_id', data.media.id);",
+                  "if (data.filename) pm.collectionVariables.set('uploaded_filename', data.filename);",
+                  "if (data.media && data.media.filename) pm.collectionVariables.set('uploaded_filename', data.media.filename);",
+                  "if (data.media && data.media.user_id) pm.collectionVariables.set('user_id', data.media.user_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{base_url}}/api/media"
+          }
+        },
+        {
+          "name": "Get Media",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/media"
+          }
+        },
+        {
+          "name": "Delete Media by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/media/{{media_id}}"
+          }
+        },
+        {
+          "name": "Get Uploaded Static File",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/uploads/{{user_id}}/{{uploaded_filename}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts (Auth Required)",
+      "item": [
+        {
+          "name": "Create/Schedule Post (sets post_id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"scheduled_for\": \"2026-12-31T23:59:59Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Get All Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": "{{base_url}}/api/posts/{{post_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}

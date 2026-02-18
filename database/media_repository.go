@@ -1,6 +1,10 @@
 package database
 
-import "SocialMediaAPI/models"
+import (
+	"SocialMediaAPI/models"
+
+	"github.com/lib/pq"
+)
 
 func (d *Database) CreateMedia(media *models.Media) error {
 	query := `INSERT INTO media (id, user_id, filename, path, url, type, size, mime_type, created_at)
@@ -30,7 +34,7 @@ func (d *Database) GetMediaByIDs(ids []string) ([]*models.Media, error) {
 	query := `SELECT id, user_id, filename, path, url, type, size, mime_type, created_at
 			  FROM media WHERE id = ANY($1)`
 
-	rows, err := d.DB.Query(query, ids)
+	rows, err := d.DB.Query(query, pq.Array(ids))
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +49,10 @@ func (d *Database) GetMediaByIDs(ids []string) ([]*models.Media, error) {
 			continue
 		}
 		mediaList = append(mediaList, media)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return mediaList, nil

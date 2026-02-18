@@ -170,6 +170,26 @@ Content-Type: application/json
 }
 ```
 
+### OAuth (Facebook / Instagram)
+
+**Start Facebook OAuth**
+```bash
+GET /api/auth/facebook
+Authorization: Bearer <token>
+```
+
+**Start Instagram OAuth**
+```bash
+GET /api/auth/instagram
+Authorization: Bearer <token>
+```
+
+**OAuth Callbacks (public)**
+```bash
+GET /auth/facebook/callback
+GET /auth/instagram/callback
+```
+
 ## Supported Platforms 🌐
 
 - **Twitter** - Text + Images
@@ -187,6 +207,12 @@ Content-Type: application/json
 | `PORT` | Server port | `8080` |
 | `BASE_URL` | Base URL for file serving | `http://localhost:8080` |
 | `UPLOAD_DIR` | Directory for uploaded files | `./uploads` |
+| `FACEBOOK_APP_ID` | Meta app ID for Facebook OAuth | `` |
+| `FACEBOOK_APP_SECRET` | Meta app secret for Facebook OAuth | `` |
+| `FACEBOOK_REDIRECT_URI` | Facebook OAuth callback URL | `` |
+| `INSTAGRAM_APP_ID` | Meta app ID for Instagram OAuth (falls back to Facebook app ID) | `` |
+| `INSTAGRAM_APP_SECRET` | Meta app secret for Instagram OAuth (falls back to Facebook app secret) | `` |
+| `INSTAGRAM_REDIRECT_URI` | Instagram OAuth callback URL | `` |
 
 ## Project Structure 📁
 ```

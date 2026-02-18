@@ -5,6 +5,7 @@ import (
 	"SocialMediaAPI/utils"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,6 +42,20 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		requestedMedia := make(map[string]struct{}, len(post.MediaIDs))
+		for _, mediaID := range post.MediaIDs {
+			requestedMedia[mediaID] = struct{}{}
+		}
+
+		for _, media := range mediaList {
+			delete(requestedMedia, media.ID)
+		}
+
+		if len(requestedMedia) > 0 {
+			utils.RespondWithError(w, http.StatusBadRequest, "One or more media IDs were not found")
+			return
+		}
+
 		for _, media := range mediaList {
 			if media.UserID != userID {
 				utils.RespondWithError(w, http.StatusForbidden, "Access denied to media")
@@ -59,22 +74,41 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	if post.ScheduledFor != nil && post.ScheduledFor.After(time.Now()) {
 		post.Status = models.StatusScheduled
 		if err := h.db.CreatePost(&post); err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Error creating post")
+			utils.RespondWithError(w, http.StatusInternalServerError, "Error creating post scheduled for future")
 			return
 		}
 		utils.RespondWithJSON(w, http.StatusCreated, post)
 	} else {
 		post.Status = models.StatusDraft
 		if err := h.db.CreatePost(&post); err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Error creating post")
+			utils.RespondWithError(w, http.StatusInternalServerError, "Error creating post now")
 			return
 		}
 
 		results := h.publisher.PublishPost(&post)
+		failedPlatforms := make([]string, 0)
+		for _, result := range results {
+			if !result.Success {
+				failedPlatforms = append(failedPlatforms, string(result.Platform))
+			}
+		}
+
 		response := models.PublishResponse{
 			PostID:  post.ID,
 			Results: results,
 		}
+
+		if len(failedPlatforms) > 0 {
+			utils.RespondWithJSON(w, http.StatusBadGateway, map[string]interface{}{
+				"error":             "Failed to publish to one or more platforms",
+				"failed_platforms":  failedPlatforms,
+				"publish_response": response,
+				"message":           "Check publish_response.results for platform-specific details",
+				"failed_summary":    "Failed platforms: " + strings.Join(failedPlatforms, ", "),
+			})
+			return
+		}
+
 		utils.RespondWithJSON(w, http.StatusCreated, response)
 	}
 }
