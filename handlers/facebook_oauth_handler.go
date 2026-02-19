@@ -39,7 +39,7 @@ func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	authURL := fmt.Sprintf(
-		"https://www.facebook.com/%s/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts",
+		"https://www.facebook.com/%s/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=pages_show_list,pages_manage_posts,pages_read_engagement",
 		cfg.FacebookVersion,
 		cfg.FacebookAppID,
 		url.QueryEscape(cfg.FacebookRedirectURI),
