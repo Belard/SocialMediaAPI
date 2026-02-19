@@ -113,7 +113,7 @@ func (h *Handler) HandleInstagramCallback(w http.ResponseWriter, r *http.Request
 
 	userID := oauthState.UserID
 
-	shortToken, _, err := h.exchangeCodeForInstagramToken(code)
+	shortToken, _, err := h.exchangeCodeForInstagramToken(strings.TrimSuffix(code, "#_"))
 	if err != nil {
 		utils.Errorf("instagram token exchange failed user_id=%s err=%v", userID, err)
 		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=token_exchange&description=%s",
@@ -176,16 +176,17 @@ func (h *Handler) exchangeCodeForInstagramToken(code string) (string, int, error
 	cfg := config.Load()
 	utils.Debugf("instagram token exchange request start")
 
-	tokenURL := fmt.Sprintf(
-		"https://graph.instagram.com/%s/oauth/access_token?client_id=%s&client_secret=%s&redirect_uri=%s&code=%s",
-		cfg.InstagramVersion,
-		cfg.InstagramAppID,
-		cfg.InstagramAppSecret,
-		url.QueryEscape(cfg.InstagramRedirectURI),
-		code,
-	)
+	// Instagram Business Login uses api.instagram.com (not graph.instagram.com)
+	tokenURL := "https://api.instagram.com/oauth/access_token"
 
-	resp, err := instagramHTTPClient.Get(tokenURL)
+	form := url.Values{}
+	form.Set("client_id", cfg.InstagramAppID)
+	form.Set("client_secret", cfg.InstagramAppSecret)
+	form.Set("grant_type", "authorization_code")
+	form.Set("redirect_uri", cfg.InstagramRedirectURI)
+	form.Set("code", code)
+
+	resp, err := instagramHTTPClient.PostForm(tokenURL, form)
 	if err != nil {
 		utils.Errorf("instagram token exchange http request failed err=%v", err)
 		return "", 0, err
@@ -227,10 +228,9 @@ func (h *Handler) exchangeInstagramLongLivedToken(shortToken string) (string, in
 	cfg := config.Load()
 	utils.Debugf("instagram long-lived token exchange request start")
 
+	// Instagram Business Login uses ig_exchange_token (not fb_exchange_token), no version prefix
 	exchangeURL := fmt.Sprintf(
-		"https://graph.instagram.com/%s/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s",
-		cfg.InstagramVersion,
-		cfg.InstagramAppID,
+		"https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=%s&access_token=%s",
 		cfg.InstagramAppSecret,
 		url.QueryEscape(shortToken),
 	)
@@ -273,58 +273,60 @@ func (h *Handler) exchangeInstagramLongLivedToken(shortToken string) (string, in
 	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
 }
 
-// getInstagramBusinessIdentity fetches the first Instagram Business Account linked to user's pages.
+// getInstagramBusinessIdentity fetches the Instagram user ID via the Instagram Business Login /me endpoint.
 func (h *Handler) getInstagramBusinessIdentity(accessToken string) (string, string, error) {
 	cfg := config.Load()
 	utils.Debugf("instagram business identity fetch start")
-	pagesURL := fmt.Sprintf(
-		"https://graph.instagram.com/%s/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=%s",
+
+	// Instagram Business Login: /me returns user_id and username directly
+	meURL := fmt.Sprintf(
+		"https://graph.instagram.com/%s/me?fields=user_id,username&access_token=%s",
 		cfg.InstagramVersion,
 		url.QueryEscape(accessToken),
 	)
 
-	resp, err := instagramHTTPClient.Get(pagesURL)
+	resp, err := instagramHTTPClient.Get(meURL)
 	if err != nil {
 		utils.Errorf("instagram business identity http request failed err=%v", err)
-		return "", "", fmt.Errorf("failed to fetch Facebook pages for Instagram binding: %w", err)
+		return "", "", fmt.Errorf("failed to fetch Instagram identity: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		utils.Errorf("instagram business identity read body failed err=%v", err)
-		return "", "", fmt.Errorf("failed to read pages response: %w", err)
+		return "", "", fmt.Errorf("failed to read identity response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		utils.Errorf("instagram business identity api status=%d", resp.StatusCode)
-		return "", "", fmt.Errorf("Meta pages API error: %s", string(body))
+		return "", "", fmt.Errorf("Instagram identity API error: %s", string(body))
 	}
 
-	var pagesResp struct {
-		Data []struct {
-			ID                       string `json:"id"`
-			InstagramBusinessAccount *struct {
-				ID       string `json:"id"`
-				Username string `json:"username"`
-			} `json:"instagram_business_account"`
-		} `json:"data"`
+	var meResp struct {
+		UserID   string `json:"user_id"`
+		Username string `json:"username"`
+		ID       string `json:"id"`
 	}
 
-	if err := json.Unmarshal(body, &pagesResp); err != nil {
+	if err := json.Unmarshal(body, &meResp); err != nil {
 		utils.Errorf("instagram business identity parse response failed err=%v", err)
-		return "", "", fmt.Errorf("failed to parse pages response: %w", err)
+		return "", "", fmt.Errorf("failed to parse identity response: %w", err)
 	}
 
-	for _, page := range pagesResp.Data {
-		if page.InstagramBusinessAccount != nil && page.InstagramBusinessAccount.ID != "" {
-			utils.Debugf("instagram business identity found page_id=%s instagram_user_id=%s", page.ID, page.InstagramBusinessAccount.ID)
-			return page.InstagramBusinessAccount.ID, page.ID, nil
-		}
+	// user_id is the Instagram-scoped user ID needed for the Content Publishing API
+	instagramUserID := meResp.UserID
+	if instagramUserID == "" {
+		instagramUserID = meResp.ID
 	}
 
-	utils.Warnf("instagram business identity not found in linked pages")
-	return "", "", fmt.Errorf("no Instagram Business account found. Ensure your Instagram account is Professional (Business/Creator), linked to a Facebook Page, and app permissions were approved")
+	if instagramUserID == "" {
+		utils.Warnf("instagram business identity returned empty user_id")
+		return "", "", fmt.Errorf("Instagram identity API returned empty user ID")
+	}
+
+	utils.Debugf("instagram business identity found user_id=%s username=%s", instagramUserID, meResp.Username)
+	return instagramUserID, "", nil
 }
 
 func sanitizeMetaError(errMsg string) string {
