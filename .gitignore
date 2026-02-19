@@ -21,6 +21,9 @@ go.work
 # Uploads
 uploads/
 
+# TLS certificates
+certs/
+
 # Database
 *.db
 *.sqlite

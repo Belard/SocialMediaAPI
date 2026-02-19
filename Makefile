@@ -36,6 +36,9 @@ clean: ## Clean build artifacts
 test: ## Run tests
 	go test -v ./...
 
+generate-cert: ## Generate self-signed TLS certificate for local HTTPS
+	./scripts/generate-cert.sh
+
 smoke-facebook-oauth: ## Run OAuth-only Facebook API smoke test (requires running API)
 	bash ./test/smoke/facebook_oauth_smoke.sh
 

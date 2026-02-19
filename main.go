@@ -42,8 +42,16 @@ func main() {
 	log.Printf("Upload directory: %s", cfg.UploadDir)
 	printEndpoints()
 
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatal(err)
+	if cfg.TLSEnabled {
+		log.Printf("TLS enabled — listening on https://localhost:%s", cfg.Port)
+		if err := http.ListenAndServeTLS(":"+cfg.Port, cfg.TLSCertFile, cfg.TLSKeyFile, r); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Printf("TLS disabled — listening on http://localhost:%s", cfg.Port)
+		if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

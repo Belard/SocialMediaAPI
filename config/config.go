@@ -18,6 +18,9 @@ type Config struct {
 	FacebookVersion      string
 	InstagramVersion     string
 	TokenEncryptionKey   []byte
+	TLSEnabled           bool
+	TLSCertFile          string
+	TLSKeyFile           string
 }
 
 func Load() *Config {
@@ -37,6 +40,9 @@ func Load() *Config {
 		FacebookVersion:      getEnv("FACEBOOK_VERSION", "v25.0"),
 		InstagramVersion:     getEnv("INSTAGRAM_VERSION", "v25.0"),
 		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
+		TLSEnabled:           getEnv("TLS_ENABLED", "false") == "true",
+		TLSCertFile:          getEnv("TLS_CERT_FILE", "./certs/server.crt"),
+		TLSKeyFile:           getEnv("TLS_KEY_FILE", "./certs/server.key"),
 	}
 }
 
