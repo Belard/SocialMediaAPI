@@ -153,7 +153,7 @@ func (i *InstagramPublisher) publishCarousel(caption string, media []*models.Med
 
 func (i *InstagramPublisher) createMediaContainer(instagramUserID, accessToken string, values map[string]string) (string, error) {
 	cfg := config.Load()
-	endpoint := fmt.Sprintf("https://graph.facebook.com/%s/%s/media", cfg.FacebookVersion, instagramUserID)
+	endpoint := fmt.Sprintf("https://graph.instagram.com/%s/%s/media", cfg.InstagramVersion, instagramUserID)
 
 	form := url.Values{}
 	for k, v := range values {
@@ -193,7 +193,7 @@ func (i *InstagramPublisher) createMediaContainer(instagramUserID, accessToken s
 
 func (i *InstagramPublisher) publishContainer(instagramUserID, accessToken, containerID string) (string, error) {
 	cfg := config.Load()
-	endpoint := fmt.Sprintf("https://graph.facebook.com/%s/%s/media_publish", cfg.FacebookVersion, instagramUserID)
+	endpoint := fmt.Sprintf("https://graph.instagram.com/%s/%s/media_publish", cfg.InstagramVersion, instagramUserID)
 
 	form := url.Values{}
 	form.Set("creation_id", containerID)
@@ -228,7 +228,7 @@ func (i *InstagramPublisher) publishContainer(instagramUserID, accessToken, cont
 
 func (i *InstagramPublisher) waitContainerReady(containerID, accessToken string) error {
 	cfg := config.Load()
-	endpoint := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=status_code&access_token=%s", cfg.FacebookVersion, containerID, url.QueryEscape(accessToken))
+	endpoint := fmt.Sprintf("https://graph.instagram.com/%s/%s?fields=status_code&access_token=%s", cfg.InstagramVersion, containerID, url.QueryEscape(accessToken))
 
 	for attempt := 0; attempt < 10; attempt++ {
 		resp, err := i.httpClient().Get(endpoint)

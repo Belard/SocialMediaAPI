@@ -16,6 +16,7 @@ type Config struct {
 	InstagramAppSecret   string
 	InstagramRedirectURI string
 	FacebookVersion      string
+	InstagramVersion     string
 	TokenEncryptionKey   []byte
 }
 
@@ -33,7 +34,8 @@ func Load() *Config {
 		InstagramAppID:       getEnv("INSTAGRAM_APP_ID", getEnv("FACEBOOK_APP_ID", "")),
 		InstagramAppSecret:   getEnv("INSTAGRAM_APP_SECRET", getEnv("FACEBOOK_APP_SECRET", "")),
 		InstagramRedirectURI: getEnv("INSTAGRAM_REDIRECT_URI", ""),
-		FacebookVersion:      getEnv("FACEBOOK_VERSION", "v24.0"),
+		FacebookVersion:      getEnv("FACEBOOK_VERSION", "v25.0"),
+		InstagramVersion:     getEnv("INSTAGRAM_VERSION", "v25.0"),
 		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
 	}
 }
