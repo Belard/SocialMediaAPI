@@ -19,7 +19,7 @@ fi
 
 echo "Generating self-signed TLS certificate in $CERT_DIR ..."
 
-openssl req -x509 -newkey rsa:2048 \
+MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' openssl req -x509 -newkey rsa:2048 \
     -keyout "$CERT_DIR/server.key" \
     -out "$CERT_DIR/server.crt" \
     -days 365 -nodes \

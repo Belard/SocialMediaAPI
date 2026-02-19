@@ -29,6 +29,11 @@ docker-rebuild: ## Rebuild and restart Docker services
 	docker-compose build --no-cache
 	docker-compose up -d
 
+docker-rebuild-logs: ## Rebuild and restart Docker services with logs
+	docker-compose down
+	docker-compose build --no-cache
+	docker-compose up
+
 clean: ## Clean build artifacts
 	rm -rf bin/
 	rm -rf uploads/*
