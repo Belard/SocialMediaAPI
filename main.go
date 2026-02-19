@@ -66,6 +66,7 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 	// OAuth routes (public - no JWT required for callback)
 	r.HandleFunc("/auth/facebook/callback", h.HandleFacebookCallback).Methods("GET")
 	r.HandleFunc("/auth/instagram/callback", h.HandleInstagramCallback).Methods("GET")
+	r.HandleFunc("/auth/tiktok/callback", h.HandleTikTokCallback).Methods("GET")
 
 	r.HandleFunc("/oauth/success", h.OAuthSuccessPage).Methods("GET")
 	r.HandleFunc("/oauth/error", h.OAuthErrorPage).Methods("GET")
@@ -82,6 +83,7 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 	// Facebook OAuth (requires JWT)
 	protected.HandleFunc("/auth/facebook", h.InitiateFacebookOAuth).Methods("GET")
 	protected.HandleFunc("/auth/instagram", h.InitiateInstagramOAuth).Methods("GET")
+	protected.HandleFunc("/auth/tiktok", h.InitiateTikTokOAuth).Methods("GET")
 
 	// Credentials
 	protected.HandleFunc("/credentials", h.SaveCredentials).Methods("POST")
@@ -107,8 +109,10 @@ func printEndpoints() {
 	log.Println("  POST   /api/auth/login            - Login")
 	log.Println("  GET    /api/auth/facebook         - Initiate Facebook OAuth (auth)")
 	log.Println("  GET    /api/auth/instagram        - Initiate Instagram OAuth (auth)")
+	log.Println("  GET    /api/auth/tiktok           - Initiate TikTok OAuth (auth)")
 	log.Println("  GET    /auth/facebook/callback    - Facebook OAuth callback")
 	log.Println("  GET    /auth/instagram/callback   - Instagram OAuth callback")
+	log.Println("  GET    /auth/tiktok/callback      - TikTok OAuth callback")
 	log.Println("  GET    /oauth/success             - OAuth success page")
 	log.Println("  GET    /oauth/error               - OAuth error page")
 	log.Println("  GET    /api/credentials/status    - Get connected platforms (auth)")

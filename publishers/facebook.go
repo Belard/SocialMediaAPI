@@ -46,7 +46,7 @@ type FacebookErrorResponse struct {
 }
 
 func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCredentials) models.PublishResult {
-	utils.Infof("facebook publish started post_id=%s user_id=%s media_count=%d", post.ID, post.UserID, len(post.Media))
+	utils.Infof("facebook publish started post_id=%s user_id=%s media_count=%d post_type=%s", post.ID, post.UserID, len(post.Media), post.PostType)
 
 	if cred == nil || cred.AccessToken == "" {
 		utils.Warnf("facebook publish missing credentials post_id=%s user_id=%s", post.ID, post.UserID)
@@ -85,15 +85,34 @@ func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCred
 	}
 	utils.Debugf("facebook page token lookup succeeded post_id=%s page_id=%s", post.ID, pageID)
 
-	// Publish based on media presence
+	// Short posts → publish as Facebook Reel
+	if post.PostType == models.PostTypeShort {
+		utils.Infof("facebook publish mode=reel post_id=%s page_id=%s", post.ID, pageID)
+		postID, err := f.publishReel(post, pageAccessToken, pageID)
+		if err != nil {
+			utils.Errorf("facebook reel publish failed post_id=%s page_id=%s err=%v", post.ID, pageID, err)
+			return models.PublishResult{
+				Platform: models.Facebook,
+				Success:  false,
+				Message:  fmt.Sprintf("Error publishing Facebook Reel: %v", err),
+			}
+		}
+		utils.Infof("facebook reel publish succeeded post_id=%s page_id=%s external_post_id=%s", post.ID, pageID, postID)
+		return models.PublishResult{
+			Platform: models.Facebook,
+			Success:  true,
+			Message:  "Published successfully as Facebook Reel",
+			PostID:   postID,
+		}
+	}
+
+	// Normal posts — existing publishing logic
 	var postID string
 	if len(post.Media) > 0 {
 		utils.Infof("facebook publish mode=media post_id=%s page_id=%s media_count=%d", post.ID, pageID, len(post.Media))
-		// Post with media
 		postID, err = f.publishWithMedia(post, pageAccessToken, pageID)
 	} else {
 		utils.Infof("facebook publish mode=text post_id=%s page_id=%s", post.ID, pageID)
-		// Text-only post
 		postID, err = f.publishTextOnly(post, pageAccessToken, pageID)
 	}
 
@@ -399,4 +418,137 @@ func (f *FacebookPublisher) uploadPhoto(media *models.Media, pageAccessToken, pa
 	utils.Debugf("facebook upload photo success page_id=%s media_id=%s photo_id=%s", pageID, media.ID, photoResp.ID)
 
 	return photoResp.ID, nil
+}
+
+// publishReel publishes a short-form video as a Facebook Reel.
+// Uses the two-step flow: initialize upload → upload video → finish.
+func (f *FacebookPublisher) publishReel(post *models.Post, pageAccessToken, pageID string) (string, error) {
+	cfg := config.Load()
+
+	// Find the first video in the post's media
+	var videoMedia *models.Media
+	for _, media := range post.Media {
+		if media.Type == models.MediaVideo {
+			videoMedia = media
+			break
+		}
+	}
+	if videoMedia == nil {
+		return "", fmt.Errorf("Facebook Reels require a video attachment")
+	}
+
+	utils.Infof("facebook reel upload start post_id=%s page_id=%s media_id=%s", post.ID, pageID, videoMedia.ID)
+
+	// Step 1: Initialize the video upload
+	initURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/video_reels", cfg.FacebookVersion, pageID)
+
+	initPayload := map[string]string{
+		"upload_phase": "start",
+	}
+	jsonData, _ := json.Marshal(initPayload)
+
+	req, err := http.NewRequest("POST", initURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+
+	resp, err := f.httpClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		var fbError FacebookErrorResponse
+		json.Unmarshal(body, &fbError)
+		utils.Errorf("facebook reel init API error post_id=%s page_id=%s status=%d message=%s", post.ID, pageID, resp.StatusCode, fbError.Error.Message)
+		return "", fmt.Errorf("Facebook Reel init error: %s", fbError.Error.Message)
+	}
+
+	var initResp struct {
+		VideoID string `json:"video_id"`
+		UploadURL string `json:"upload_url"`
+	}
+	if err := json.Unmarshal(body, &initResp); err != nil {
+		return "", fmt.Errorf("failed to parse reel init response: %w", err)
+	}
+
+	utils.Debugf("facebook reel init success post_id=%s video_id=%s", post.ID, initResp.VideoID)
+
+	// Step 2: Upload the video binary
+	videoFile, err := os.Open(videoMedia.Path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open video file: %w", err)
+	}
+	defer videoFile.Close()
+
+	stat, err := videoFile.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to stat video file: %w", err)
+	}
+
+	uploadReq, err := http.NewRequest("POST", initResp.UploadURL, videoFile)
+	if err != nil {
+		return "", err
+	}
+	uploadReq.Header.Set("Authorization", "OAuth "+pageAccessToken)
+	uploadReq.Header.Set("offset", "0")
+	uploadReq.Header.Set("file_size", fmt.Sprintf("%d", stat.Size()))
+	uploadReq.ContentLength = stat.Size()
+
+	uploadResp, err := f.httpClient().Do(uploadReq)
+	if err != nil {
+		return "", fmt.Errorf("video upload request failed: %w", err)
+	}
+	defer uploadResp.Body.Close()
+
+	uploadBody, _ := io.ReadAll(uploadResp.Body)
+	if uploadResp.StatusCode != http.StatusOK {
+		utils.Errorf("facebook reel upload API error post_id=%s status=%d body=%s", post.ID, uploadResp.StatusCode, string(uploadBody))
+		return "", fmt.Errorf("Facebook Reel upload error: %s", string(uploadBody))
+	}
+	utils.Debugf("facebook reel upload success post_id=%s video_id=%s", post.ID, initResp.VideoID)
+
+	// Step 3: Publish (finish) the reel
+	finishURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/video_reels", cfg.FacebookVersion, pageID)
+
+	finishPayload := map[string]string{
+		"upload_phase": "finish",
+		"video_id":     initResp.VideoID,
+		"title":        post.Content,
+		"description":  post.Content,
+	}
+	jsonData, _ = json.Marshal(finishPayload)
+
+	finishReq, err := http.NewRequest("POST", finishURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	finishReq.Header.Set("Content-Type", "application/json")
+	finishReq.Header.Set("Authorization", "Bearer "+pageAccessToken)
+
+	finishResp, err := f.httpClient().Do(finishReq)
+	if err != nil {
+		return "", fmt.Errorf("reel finish request failed: %w", err)
+	}
+	defer finishResp.Body.Close()
+
+	finishBody, _ := io.ReadAll(finishResp.Body)
+	if finishResp.StatusCode != http.StatusOK {
+		var fbError FacebookErrorResponse
+		json.Unmarshal(finishBody, &fbError)
+		utils.Errorf("facebook reel finish API error post_id=%s status=%d message=%s", post.ID, finishResp.StatusCode, fbError.Error.Message)
+		return "", fmt.Errorf("Facebook Reel publish error: %s", fbError.Error.Message)
+	}
+
+	var finishResult struct {
+		Success bool `json:"success"`
+	}
+	json.Unmarshal(finishBody, &finishResult)
+
+	utils.Infof("facebook reel published post_id=%s video_id=%s", post.ID, initResp.VideoID)
+	return initResp.VideoID, nil
 }

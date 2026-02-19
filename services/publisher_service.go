@@ -22,7 +22,7 @@ func NewPublisherService(db *database.Database) *PublisherService {
 			models.Facebook:  publishers.NewFacebookPublisher(nil),
 			models.LinkedIn:  &publishers.LinkedInPublisher{},
 			models.Instagram: publishers.NewInstagramPublisher(nil),
-			models.TikTok:    &publishers.TikTokPublisher{},
+			models.TikTok:    publishers.NewTikTokPublisher(nil),
 		},
 	}
 }

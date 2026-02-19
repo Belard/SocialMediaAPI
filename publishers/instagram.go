@@ -56,6 +56,12 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 		}
 	}
 
+	// Short posts (Reels) — publish as a Reel with video
+	if post.PostType == models.PostTypeShort {
+		return i.publishReel(post, cred)
+	}
+
+	// Normal posts — image-based publishing
 	imageMedia := []*models.Media{}
 	for _, media := range post.Media {
 		if media.Type == models.MediaImage {
@@ -67,7 +73,7 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 		return models.PublishResult{
 			Platform: models.Instagram,
 			Success:  false,
-			Message:  "Instagram requires at least one image",
+			Message:  "Instagram requires at least one image for normal posts",
 		}
 	}
 
@@ -99,6 +105,72 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 		Platform: models.Instagram,
 		Success:  true,
 		Message:  "Published successfully on Instagram",
+		PostID:   postID,
+	}
+}
+
+// publishReel publishes a short-form video as an Instagram Reel.
+func (i *InstagramPublisher) publishReel(post *models.Post, cred *models.PlatformCredentials) models.PublishResult {
+	// Find the first video media
+	var videoMedia *models.Media
+	for _, media := range post.Media {
+		if media.Type == models.MediaVideo {
+			videoMedia = media
+			break
+		}
+	}
+
+	if videoMedia == nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  "Instagram Reels require a video attachment",
+		}
+	}
+
+	if strings.Contains(strings.ToLower(videoMedia.URL), "localhost") || strings.Contains(strings.ToLower(videoMedia.URL), "127.0.0.1") {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  "Instagram cannot fetch local media URLs. Use a public BASE_URL (e.g. HTTPS domain or tunnel) so Meta servers can access your files",
+		}
+	}
+
+	// Create a REELS media container
+	containerID, err := i.createMediaContainer(cred.PlatformUserID, cred.AccessToken, map[string]string{
+		"media_type": "REELS",
+		"video_url":  videoMedia.URL,
+		"caption":    post.Content,
+	})
+	if err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error creating Instagram Reel container: %v", err),
+		}
+	}
+
+	if err := i.waitContainerReady(containerID, cred.AccessToken); err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error processing Instagram Reel: %v", err),
+		}
+	}
+
+	postID, err := i.publishContainer(cred.PlatformUserID, cred.AccessToken, containerID)
+	if err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error publishing Instagram Reel: %v", err),
+		}
+	}
+
+	return models.PublishResult{
+		Platform: models.Instagram,
+		Success:  true,
+		Message:  "Published successfully as Instagram Reel",
 		PostID:   postID,
 	}
 }

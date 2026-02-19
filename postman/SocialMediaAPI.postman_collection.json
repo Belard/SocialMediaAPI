@@ -6,7 +6,7 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "base_url", "value": "https://localhost:8080" },
     { "key": "jwt_token", "value": "" },
     { "key": "user_id", "value": "" },
     { "key": "post_id", "value": "" },
@@ -82,7 +82,9 @@
           "name": "Initiate Facebook OAuth (Auth Required)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/auth/facebook"
           }
         },
@@ -90,8 +92,20 @@
           "name": "Initiate Instagram OAuth (Auth Required)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/auth/instagram"
+          }
+        },
+        {
+          "name": "Initiate TikTok OAuth (Auth Required)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": "{{base_url}}/api/auth/tiktok"
           }
         },
         {
@@ -106,6 +120,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/auth/instagram/callback?code=TEST_CODE&state=TEST_STATE"
+          }
+        },
+        {
+          "name": "TikTok OAuth Callback (manual test)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/tiktok/callback?code=TEST_CODE&state=TEST_STATE"
           }
         },
         {
@@ -147,7 +168,9 @@
           "name": "Get Connected Platforms",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/credentials/status"
           }
         },
@@ -193,12 +216,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "body": {
               "mode": "formdata",
-              "formdata": [
-                { "key": "file", "type": "file", "src": "" }
-              ]
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
             },
             "url": "{{base_url}}/api/media"
           }
@@ -207,7 +230,9 @@
           "name": "Get Media",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/media"
           }
         },
@@ -215,7 +240,9 @@
           "name": "Delete Media by ID",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/media/{{media_id}}"
           }
         },
@@ -232,7 +259,8 @@
       "name": "Posts (Auth Required)",
       "item": [
         {
-          "name": "Create/Schedule Post (sets post_id)",
+          "name": "Create Normal Post (sets post_id)",
+          "description": "Creates a normal post. Normal posts support facebook, instagram, linkedin, twitter — but NOT tiktok.",
           "event": [
             {
               "listen": "test",
@@ -256,7 +284,71 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"scheduled_for\": \"2026-12-31T23:59:59Z\"\n}",
+              "raw": "{\n  \"content\": \"Hello from Postman — normal post\",\n  \"post_type\": \"normal\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Create Short Post / Reel (sets post_id)",
+          "description": "Creates a short-form video post. Published as a Reel on Instagram, a Reel on Facebook, and a video on TikTok. Requires video media. Only supports instagram, facebook, and tiktok.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Check out this short video!\",\n  \"post_type\": \"short\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Schedule Post (future)",
+          "description": "Schedules a post for future publishing. post_type defaults to 'normal' if omitted.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Scheduled post from Postman\",\n  \"post_type\": \"normal\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"scheduled_for\": \"2026-12-31T23:59:59Z\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/posts"
@@ -266,7 +358,9 @@
           "name": "Get All Posts",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/posts"
           }
         },
@@ -274,7 +368,9 @@
           "name": "Get Post by ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
             "url": "{{base_url}}/api/posts/{{post_id}}"
           }
         }

@@ -35,6 +35,65 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default post_type to "normal" if not specified
+	if post.PostType == "" {
+		post.PostType = models.PostTypeNormal
+	}
+
+	// Validate post_type value
+	if post.PostType != models.PostTypeNormal && post.PostType != models.PostTypeShort {
+		utils.RespondWithError(w, http.StatusBadRequest,
+			"Invalid post_type. Must be 'normal' or 'short'")
+		return
+	}
+
+	// Enforce platform restrictions based on post_type
+	if post.PostType == models.PostTypeNormal {
+		// Normal posts cannot be published to TikTok
+		for _, p := range post.Platforms {
+			if p == models.TikTok {
+				utils.RespondWithError(w, http.StatusBadRequest,
+					"TikTok only supports short-form video posts. Set post_type to 'short' to publish to TikTok")
+				return
+			}
+		}
+	}
+
+	if post.PostType == models.PostTypeShort {
+		// Short posts only support platforms that accept short-form video: Instagram (Reels), Facebook (Reels), TikTok
+		allowedShortPlatforms := map[models.Platform]bool{
+			models.Instagram: true,
+			models.Facebook:  true,
+			models.TikTok:    true,
+		}
+		for _, p := range post.Platforms {
+			if !allowedShortPlatforms[p] {
+				utils.RespondWithError(w, http.StatusBadRequest,
+					"Short posts only support instagram, facebook, and tiktok platforms")
+				return
+			}
+		}
+
+		// Short posts require at least one video
+		hasVideo := false
+		if len(post.MediaIDs) > 0 {
+			mediaList, err := h.db.GetMediaByIDs(post.MediaIDs)
+			if err == nil {
+				for _, m := range mediaList {
+					if m.Type == models.MediaVideo {
+						hasVideo = true
+						break
+					}
+				}
+			}
+		}
+		if !hasVideo && len(post.MediaIDs) > 0 {
+			utils.RespondWithError(w, http.StatusBadRequest,
+				"Short posts require at least one video media attachment")
+			return
+		}
+	}
+
 	if len(post.MediaIDs) > 0 {
 		mediaList, err := h.db.GetMediaByIDs(post.MediaIDs)
 		if err != nil {

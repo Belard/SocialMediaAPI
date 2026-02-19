@@ -21,6 +21,13 @@ const (
 	StatusFailed    PostStatus = "failed"
 )
 
+type PostType string
+
+const (
+	PostTypeNormal PostType = "normal"
+	PostTypeShort  PostType = "short"
+)
+
 type MediaType string
 
 const (
@@ -52,6 +59,7 @@ type Post struct {
 	ID           string     `json:"id"`
 	UserID       string     `json:"user_id"`
 	Content      string     `json:"content"`
+	PostType     PostType   `json:"post_type"`
 	MediaIDs     []string   `json:"media_ids,omitempty"`
 	Media        []*Media   `json:"media,omitempty"`
 	Platforms    []Platform `json:"platforms"`

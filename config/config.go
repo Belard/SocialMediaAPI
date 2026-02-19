@@ -17,6 +17,9 @@ type Config struct {
 	InstagramRedirectURI string
 	FacebookVersion      string
 	InstagramVersion     string
+	TikTokClientKey      string
+	TikTokClientSecret   string
+	TikTokRedirectURI    string
 	TokenEncryptionKey   []byte
 	TLSEnabled           bool
 	TLSCertFile          string
@@ -39,6 +42,9 @@ func Load() *Config {
 		InstagramRedirectURI: getEnv("INSTAGRAM_REDIRECT_URI", ""),
 		FacebookVersion:      getEnv("FACEBOOK_VERSION", "v25.0"),
 		InstagramVersion:     getEnv("INSTAGRAM_VERSION", "v25.0"),
+		TikTokClientKey:      getEnv("TIKTOK_CLIENT_KEY", ""),
+		TikTokClientSecret:   getEnv("TIKTOK_CLIENT_SECRET", ""),
+		TikTokRedirectURI:    getEnv("TIKTOK_REDIRECT_URI", ""),
 		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
 		TLSEnabled:           getEnv("TLS_ENABLED", "false") == "true",
 		TLSCertFile:          getEnv("TLS_CERT_FILE", "./certs/server.crt"),

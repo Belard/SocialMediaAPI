@@ -53,6 +53,7 @@ func (d *Database) createTables() error {
 			id VARCHAR(255) PRIMARY KEY,
 			user_id VARCHAR(255) NOT NULL,
 			content TEXT NOT NULL,
+			post_type VARCHAR(50) NOT NULL DEFAULT 'normal',
 			media_ids TEXT[],
 			platforms TEXT[] NOT NULL,
 			status VARCHAR(50) NOT NULL,
@@ -62,6 +63,12 @@ func (d *Database) createTables() error {
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
+		// Migration: add post_type column to existing tables
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='post_type') THEN
+				ALTER TABLE posts ADD COLUMN post_type VARCHAR(50) NOT NULL DEFAULT 'normal';
+			END IF;
+		END $$;`,
 		`CREATE TABLE IF NOT EXISTS credentials (
 			id VARCHAR(255) PRIMARY KEY,
 			user_id VARCHAR(255) NOT NULL,
