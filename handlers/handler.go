@@ -6,19 +6,17 @@ import (
 )
 
 type Handler struct {
-	db                *database.Database
-	publisher         *services.PublisherService
-	authService       *services.AuthService
-	storage           *services.StorageService
-	oauthStateService *services.OAuthStateService
+	db          *database.Database
+	publisher   *services.PublisherService
+	authService *services.AuthService
+	storage     *services.StorageService
 }
 
-func NewHandler(db *database.Database, publisher *services.PublisherService, authService *services.AuthService, storage *services.StorageService, oauthStateService *services.OAuthStateService) *Handler {
+func NewHandler(db *database.Database, publisher *services.PublisherService, authService *services.AuthService, storage *services.StorageService) *Handler {
 	return &Handler{
-		db:                db,
-		publisher:         publisher,
-		authService:       authService,
-		storage:           storage,
-		oauthStateService: oauthStateService,
+		db:          db,
+		publisher:   publisher,
+		authService: authService,
+		storage:     storage,
 	}
 }

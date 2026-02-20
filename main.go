@@ -7,6 +7,7 @@ import (
 	"SocialMediaAPI/config"
 	"SocialMediaAPI/database"
 	"SocialMediaAPI/handlers"
+	"SocialMediaAPI/handlers/oauth"
 	"SocialMediaAPI/middleware"
 	"SocialMediaAPI/services"
 
@@ -34,9 +35,10 @@ func main() {
 	scheduler.Start()
 	defer scheduler.Stop()
 
-	handler := handlers.NewHandler(db, publisher, authService, storage, oauthStateService)
+	handler := handlers.NewHandler(db, publisher, authService, storage)
+	oauthHandler := oauth.NewOAuthHandler(db, oauthStateService)
 
-	r := setupRoutes(handler, authService)
+	r := setupRoutes(handler, oauthHandler, authService)
 
 	log.Printf("Server starting on port %s...", cfg.Port)
 	log.Printf("Upload directory: %s", cfg.UploadDir)
@@ -55,7 +57,7 @@ func main() {
 	}
 }
 
-func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Router {
+func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *services.AuthService) *mux.Router {
 	r := mux.NewRouter()
 
 	// Public routes
@@ -64,12 +66,12 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 	r.HandleFunc("/api/auth/login", h.Login).Methods("POST")
 
 	// OAuth routes (public - no JWT required for callback)
-	r.HandleFunc("/auth/facebook/callback", h.HandleFacebookCallback).Methods("GET")
-	r.HandleFunc("/auth/instagram/callback", h.HandleInstagramCallback).Methods("GET")
-	r.HandleFunc("/auth/tiktok/callback", h.HandleTikTokCallback).Methods("GET")
+	r.HandleFunc("/auth/facebook/callback", oh.HandleFacebookCallback).Methods("GET")
+	r.HandleFunc("/auth/instagram/callback", oh.HandleInstagramCallback).Methods("GET")
+	r.HandleFunc("/auth/tiktok/callback", oh.HandleTikTokCallback).Methods("GET")
 
-	r.HandleFunc("/oauth/success", h.OAuthSuccessPage).Methods("GET")
-	r.HandleFunc("/oauth/error", h.OAuthErrorPage).Methods("GET")
+	r.HandleFunc("/oauth/success", oh.OAuthSuccessPage).Methods("GET")
+	r.HandleFunc("/oauth/error", oh.OAuthErrorPage).Methods("GET")
 
 	// Static file serving
 	uploadDir := config.Load().UploadDir
@@ -80,10 +82,10 @@ func setupRoutes(h *handlers.Handler, authService *services.AuthService) *mux.Ro
 	protected := r.PathPrefix("/api").Subrouter()
 	protected.Use(middleware.AuthMiddleware(authService))
 
-	// Facebook OAuth (requires JWT)
-	protected.HandleFunc("/auth/facebook", h.InitiateFacebookOAuth).Methods("GET")
-	protected.HandleFunc("/auth/instagram", h.InitiateInstagramOAuth).Methods("GET")
-	protected.HandleFunc("/auth/tiktok", h.InitiateTikTokOAuth).Methods("GET")
+	// OAuth initiation (requires JWT)
+	protected.HandleFunc("/auth/facebook", oh.InitiateFacebookOAuth).Methods("GET")
+	protected.HandleFunc("/auth/instagram", oh.InitiateInstagramOAuth).Methods("GET")
+	protected.HandleFunc("/auth/tiktok", oh.InitiateTikTokOAuth).Methods("GET")
 
 	// Credentials
 	protected.HandleFunc("/credentials", h.SaveCredentials).Methods("POST")

@@ -1,4 +1,4 @@
-package handlers
+package oauth
 
 import (
 	"SocialMediaAPI/config"
@@ -18,7 +18,7 @@ import (
 var instagramHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 // InitiateInstagramOAuth starts the Instagram OAuth flow
-func (h *Handler) InitiateInstagramOAuth(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) InitiateInstagramOAuth(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("userID").(string)
 	if !ok || userID == "" {
 		utils.Warnf("instagram oauth initiate unauthorized: missing user id in context")
@@ -70,7 +70,7 @@ func (h *Handler) InitiateInstagramOAuth(w http.ResponseWriter, r *http.Request)
 }
 
 // HandleInstagramCallback handles the OAuth callback from Instagram (Meta)
-func (h *Handler) HandleInstagramCallback(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) HandleInstagramCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	errorParam := r.URL.Query().Get("error")
@@ -172,7 +172,7 @@ func (h *Handler) HandleInstagramCallback(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, "/oauth/success?platform=instagram", http.StatusFound)
 }
 
-func (h *Handler) exchangeCodeForInstagramToken(code string) (string, int, error) {
+func (h *OAuthHandler) exchangeCodeForInstagramToken(code string) (string, int, error) {
 	cfg := config.Load()
 	utils.Debugf("instagram token exchange request start")
 
@@ -224,7 +224,7 @@ func (h *Handler) exchangeCodeForInstagramToken(code string) (string, int, error
 	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
 }
 
-func (h *Handler) exchangeInstagramLongLivedToken(shortToken string) (string, int, error) {
+func (h *OAuthHandler) exchangeInstagramLongLivedToken(shortToken string) (string, int, error) {
 	cfg := config.Load()
 	utils.Debugf("instagram long-lived token exchange request start")
 
@@ -274,7 +274,7 @@ func (h *Handler) exchangeInstagramLongLivedToken(shortToken string) (string, in
 }
 
 // getInstagramBusinessIdentity fetches the Instagram user ID via the Instagram Business Login /me endpoint.
-func (h *Handler) getInstagramBusinessIdentity(accessToken string) (string, string, error) {
+func (h *OAuthHandler) getInstagramBusinessIdentity(accessToken string) (string, string, error) {
 	cfg := config.Load()
 	utils.Debugf("instagram business identity fetch start")
 

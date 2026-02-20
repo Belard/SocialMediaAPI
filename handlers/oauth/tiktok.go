@@ -1,4 +1,4 @@
-package handlers
+package oauth
 
 import (
 	"SocialMediaAPI/config"
@@ -23,7 +23,7 @@ var tiktokHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // InitiateTikTokOAuth starts the TikTok OAuth flow.
 // TikTok uses Login Kit v2 with PKCE (code_verifier / code_challenge).
-func (h *Handler) InitiateTikTokOAuth(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) InitiateTikTokOAuth(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("userID").(string)
 	if !ok || userID == "" {
 		utils.Warnf("tiktok oauth initiate unauthorized: missing user id in context")
@@ -81,7 +81,7 @@ func (h *Handler) InitiateTikTokOAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleTikTokCallback handles the OAuth callback from TikTok
-func (h *Handler) HandleTikTokCallback(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) HandleTikTokCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	errorParam := r.URL.Query().Get("error")
@@ -171,7 +171,7 @@ func (h *Handler) HandleTikTokCallback(w http.ResponseWriter, r *http.Request) {
 
 // exchangeCodeForTikTokToken exchanges the auth code for an access token via TikTok's token endpoint.
 // Returns: accessToken, refreshToken, expiresIn, openID, error
-func (h *Handler) exchangeCodeForTikTokToken(code, codeVerifier string) (string, string, int, string, error) {
+func (h *OAuthHandler) exchangeCodeForTikTokToken(code, codeVerifier string) (string, string, int, string, error) {
 	cfg := config.Load()
 	utils.Debugf("tiktok token exchange request start")
 

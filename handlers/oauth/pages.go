@@ -1,11 +1,11 @@
-package handlers
+package oauth
 
 import (
 	"fmt"
 	"net/http"
 )
 
-func (h *Handler) OAuthSuccessPage(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) OAuthSuccessPage(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(fmt.Sprintf(`
@@ -57,7 +57,7 @@ func (h *Handler) OAuthSuccessPage(w http.ResponseWriter, r *http.Request) {
 	`, platform, platform)))
 }
 
-func (h *Handler) OAuthErrorPage(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) OAuthErrorPage(w http.ResponseWriter, r *http.Request) {
 	errorType := r.URL.Query().Get("error")
 	description := r.URL.Query().Get("description")
 	w.Header().Set("Content-Type", "text/html")

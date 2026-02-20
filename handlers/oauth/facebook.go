@@ -1,4 +1,4 @@
-package handlers
+package oauth
 
 import (
 	"SocialMediaAPI/config"
@@ -17,7 +17,7 @@ import (
 var facebookHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 // InitiateFacebookOAuth starts the Facebook OAuth flow
-func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user ID from JWT (safe type assertion)
 	userID, ok := r.Context().Value("userID").(string)
 	if !ok || userID == "" {
@@ -30,10 +30,10 @@ func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) 
 	state := h.oauthStateService.GenerateState(userID, "facebook")
 
 	cfg := config.Load()
-	
+
 	if cfg.FacebookAppID == "" {
 		utils.Errorf("facebook oauth initiate config missing: FACEBOOK_APP_ID")
-		utils.RespondWithError(w, http.StatusInternalServerError, 
+		utils.RespondWithError(w, http.StatusInternalServerError,
 			"Facebook App ID not configured. Set FACEBOOK_APP_ID environment variable")
 		return
 	}
@@ -55,7 +55,7 @@ func (h *Handler) InitiateFacebookOAuth(w http.ResponseWriter, r *http.Request) 
 }
 
 // HandleFacebookCallback handles the OAuth callback from Facebook
-func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request) {
+func (h *OAuthHandler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	errorParam := r.URL.Query().Get("error")
@@ -66,7 +66,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	if errorParam != "" {
 		errorDesc := r.URL.Query().Get("error_description")
 		utils.Warnf("user denied or OAuth error error=%s description=%s", errorParam, errorDesc)
-		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=%s&description=%s", 
+		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=%s&description=%s",
 			errorParam, url.QueryEscape(errorDesc)), http.StatusFound)
 		return
 	}
@@ -87,7 +87,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	oauthState, valid := h.oauthStateService.ValidateState(state)
 	if !valid {
 		utils.Warnf("invalid or expired state")
-		utils.RespondWithError(w, http.StatusBadRequest, 
+		utils.RespondWithError(w, http.StatusBadRequest,
 			"Invalid or expired state token. Please try connecting again.")
 		return
 	}
@@ -99,7 +99,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	accessToken, expiresIn, err := h.exchangeCodeForFacebookToken(code)
 	if err != nil {
 		utils.Errorf("token exchange failed user_id=%s err=%v", userID, err)
-		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=token_exchange&description=%s", 
+		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=token_exchange&description=%s",
 			url.QueryEscape(err.Error())), http.StatusFound)
 		return
 	}
@@ -109,7 +109,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	facebookUserID, pageID, err := h.getFacebookUserIdentity(accessToken)
 	if err != nil {
 		utils.Errorf("identity fetch failed user_id=%s err=%v", userID, err)
-		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=identity_fetch&description=%s", 
+		http.Redirect(w, r, fmt.Sprintf("/oauth/error?error=identity_fetch&description=%s",
 			url.QueryEscape(err.Error())), http.StatusFound)
 		return
 	}
@@ -138,7 +138,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 
 	if err := h.db.SaveCredentials(cred); err != nil {
 		utils.Errorf("failed to save credentials user_id=%s facebook_user_id=%s page_id=%s err=%v", userID, facebookUserID, pageID, err)
-		http.Redirect(w, r, "/oauth/error?error=save_failed&description=Failed+to+save+credentials", 
+		http.Redirect(w, r, "/oauth/error?error=save_failed&description=Failed+to+save+credentials",
 			http.StatusFound)
 		return
 	}
@@ -149,7 +149,7 @@ func (h *Handler) HandleFacebookCallback(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/oauth/success?platform=facebook", http.StatusFound)
 }
 
-func (h *Handler) exchangeCodeForFacebookToken(code string) (string, int, error) {
+func (h *OAuthHandler) exchangeCodeForFacebookToken(code string) (string, int, error) {
 	cfg := config.Load()
 	utils.Debugf("facebook token exchange request start")
 
@@ -203,13 +203,13 @@ func (h *Handler) exchangeCodeForFacebookToken(code string) (string, int, error)
 
 // getFacebookUserIdentity fetches the Facebook user ID and primary page ID
 // This binds the token to a specific Facebook identity
-func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, error) {
+func (h *OAuthHandler) getFacebookUserIdentity(accessToken string) (string, string, error) {
 	cfg := config.Load()
 	utils.Debugf("facebook identity fetch start")
 
 	// Get the authenticated user's ID
 	userURL := fmt.Sprintf("https://graph.facebook.com/%s/me?access_token=%s", cfg.FacebookVersion, accessToken)
-	
+
 	resp, err := facebookHTTPClient.Get(userURL)
 	if err != nil {
 		utils.Errorf("facebook identity fetch user info request failed err=%v", err)
@@ -241,7 +241,7 @@ func (h *Handler) getFacebookUserIdentity(accessToken string) (string, string, e
 
 	// Get the user's pages (fetch first page as primary)
 	pagesURL := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?access_token=%s", cfg.FacebookVersion, accessToken)
-	
+
 	resp, err = facebookHTTPClient.Get(pagesURL)
 	if err != nil {
 		utils.Errorf("facebook identity fetch pages request failed user_id=%s err=%v", facebookUserID, err)
