@@ -22,6 +22,9 @@ type Config struct {
 	TikTokClientKey      string
 	TikTokClientSecret   string
 	TikTokRedirectURI    string
+	TwitterClientID      string
+	TwitterClientSecret  string
+	TwitterRedirectURI   string
 	TokenEncryptionKey   []byte
 	TLSEnabled           bool
 	TLSCertFile          string
@@ -49,6 +52,9 @@ func Load() *Config {
 		TikTokClientKey:      getEnv("TIKTOK_CLIENT_KEY", ""),
 		TikTokClientSecret:   getEnv("TIKTOK_CLIENT_SECRET", ""),
 		TikTokRedirectURI:    getEnv("TIKTOK_REDIRECT_URI", ""),
+		TwitterClientID:      getEnv("TWITTER_CLIENT_ID", ""),
+		TwitterClientSecret:  getEnv("TWITTER_CLIENT_SECRET", ""),
+		TwitterRedirectURI:   getEnv("TWITTER_REDIRECT_URI", ""),
 		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
 		TLSEnabled:           getEnv("TLS_ENABLED", "false") == "true",
 		TLSCertFile:          getEnv("TLS_CERT_FILE", "./certs/server.crt"),

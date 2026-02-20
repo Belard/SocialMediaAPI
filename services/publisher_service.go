@@ -18,7 +18,7 @@ func NewPublisherService(db *database.Database) *PublisherService {
 	return &PublisherService{
 		db: db,
 		publishers: map[models.Platform]publishers.PlatformPublisher{
-			models.Twitter:   &publishers.TwitterPublisher{},
+			models.Twitter:   publishers.NewTwitterPublisher(nil),
 			models.Facebook:  publishers.NewFacebookPublisher(nil),
 			models.LinkedIn:  &publishers.LinkedInPublisher{},
 			models.Instagram: publishers.NewInstagramPublisher(nil),

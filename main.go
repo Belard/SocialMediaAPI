@@ -69,6 +69,7 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 	r.HandleFunc("/auth/facebook/callback", oh.HandleFacebookCallback).Methods("GET")
 	r.HandleFunc("/auth/instagram/callback", oh.HandleInstagramCallback).Methods("GET")
 	r.HandleFunc("/auth/tiktok/callback", oh.HandleTikTokCallback).Methods("GET")
+	r.HandleFunc("/auth/twitter/callback", oh.HandleTwitterCallback).Methods("GET")
 
 	r.HandleFunc("/oauth/success", oh.OAuthSuccessPage).Methods("GET")
 	r.HandleFunc("/oauth/error", oh.OAuthErrorPage).Methods("GET")
@@ -86,6 +87,7 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 	protected.HandleFunc("/auth/facebook", oh.InitiateFacebookOAuth).Methods("GET")
 	protected.HandleFunc("/auth/instagram", oh.InitiateInstagramOAuth).Methods("GET")
 	protected.HandleFunc("/auth/tiktok", oh.InitiateTikTokOAuth).Methods("GET")
+	protected.HandleFunc("/auth/twitter", oh.InitiateTwitterOAuth).Methods("GET")
 
 	// Credentials
 	protected.HandleFunc("/credentials", h.SaveCredentials).Methods("POST")
@@ -112,9 +114,11 @@ func printEndpoints() {
 	log.Println("  GET    /api/auth/facebook         - Initiate Facebook OAuth (auth)")
 	log.Println("  GET    /api/auth/instagram        - Initiate Instagram OAuth (auth)")
 	log.Println("  GET    /api/auth/tiktok           - Initiate TikTok OAuth (auth)")
+	log.Println("  GET    /api/auth/twitter          - Initiate Twitter OAuth (auth)")
 	log.Println("  GET    /auth/facebook/callback    - Facebook OAuth callback")
 	log.Println("  GET    /auth/instagram/callback   - Instagram OAuth callback")
 	log.Println("  GET    /auth/tiktok/callback      - TikTok OAuth callback")
+	log.Println("  GET    /auth/twitter/callback     - Twitter OAuth callback")
 	log.Println("  GET    /oauth/success             - OAuth success page")
 	log.Println("  GET    /oauth/error               - OAuth error page")
 	log.Println("  GET    /api/credentials/status    - Get connected platforms (auth)")
