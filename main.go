@@ -22,7 +22,7 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	storage, err := services.NewStorageService(cfg.UploadDir, cfg.BaseURL)
+	storage, err := services.NewStorageService(cfg.UploadDir, cfg.BaseURL, cfg.MaxImageUploadSize, cfg.MaxVideoUploadSize)
 	if err != nil {
 		log.Fatal("Failed to initialize storage:", err)
 	}

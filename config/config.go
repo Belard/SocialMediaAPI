@@ -9,6 +9,8 @@ type Config struct {
 	BaseURL              string
 	UploadDir            string
 	MaxUploadSize        int64
+	MaxImageUploadSize   int64
+	MaxVideoUploadSize   int64
 	FacebookAppID        string
 	FacebookAppSecret    string
 	FacebookRedirectURI  string
@@ -33,7 +35,9 @@ func Load() *Config {
 		Port:                 getEnv("PORT", "8080"),
 		BaseURL:              getEnv("BASE_URL", "http://localhost:8080"),
 		UploadDir:            getEnv("UPLOAD_DIR", "./uploads"),
-		MaxUploadSize:        10 << 20,                            // 10 MB
+		MaxUploadSize:        100 << 20,                           // 100 MB (overall form limit)
+		MaxImageUploadSize:   10 << 20,                            // 10 MB
+		MaxVideoUploadSize:   100 << 20,                           // 100 MB
 		FacebookAppID:        getEnv("FACEBOOK_APP_ID", ""),       //ADD LATER
 		FacebookAppSecret:    getEnv("FACEBOOK_APP_SECRET", ""),   //ADD LATER
 		FacebookRedirectURI:  getEnv("FACEBOOK_REDIRECT_URI", ""), //ADD LATER

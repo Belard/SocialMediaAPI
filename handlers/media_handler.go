@@ -3,12 +3,22 @@ package handlers
 import (
 	"SocialMediaAPI/config"
 	"SocialMediaAPI/models"
+	"SocialMediaAPI/services"
 	"SocialMediaAPI/utils"
+	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
+
+// allowedUploadExtensions for quick handler-level rejection before reading the body.
+var allowedUploadExtensions = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true,
+	".gif": true, ".webp": true, ".mp4": true,
+}
 
 func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("userID").(string)
@@ -17,17 +27,45 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseMultipartForm(config.Load().MaxUploadSize); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "File too large")
+	// Reject requests with a Content-Length exceeding the absolute maximum early.
+	cfg := config.Load()
+	if r.ContentLength > cfg.MaxUploadSize {
+		utils.RespondWithError(w, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("Request body too large; maximum allowed is %d MB", cfg.MaxUploadSize/(1<<20)))
+		return
+	}
+
+	if err := r.ParseMultipartForm(cfg.MaxUploadSize); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "File too large or malformed multipart request")
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Error retrieving file")
+		utils.RespondWithError(w, http.StatusBadRequest, "Error retrieving file: ensure the field name is 'file'")
 		return
 	}
 	defer file.Close()
+
+	// Quick extension check for fast rejection.
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowedUploadExtensions[ext] {
+		utils.RespondWithError(w, http.StatusBadRequest,
+			"File type not allowed; accepted extensions: .jpg, .jpeg, .png, .gif, .webp, .mp4")
+		return
+	}
+
+	// Magic-number content verification — reject disguised/spoofed files early.
+	kind, err := services.DetectFileType(file)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Unable to verify file type: "+err.Error())
+		return
+	}
+	if !services.IsAllowedMIME(kind.MIME.Value) {
+		utils.RespondWithError(w, http.StatusUnsupportedMediaType,
+			fmt.Sprintf("File content type %s is not allowed; accepted: JPEG, PNG, GIF, WebP images and MP4 video", kind.MIME.Value))
+		return
+	}
 
 	media, err := h.storage.SaveFile(file, header, userID)
 	if err != nil {
