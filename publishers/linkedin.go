@@ -21,6 +21,15 @@ func (l *LinkedInPublisher) Publish(post *models.Post, cred *models.PlatformCred
 		}
 	}
 
+	// LinkedIn does NOT support stories or short-form video posts.
+	if post.PostType == models.PostTypeStory {
+		return models.PublishResult{
+			Platform: models.LinkedIn,
+			Success:  false,
+			Message:  "LinkedIn does not support stories. Use post_type 'normal' instead",
+		}
+	}
+
 	return models.PublishResult{
 		Platform: models.LinkedIn,
 		Success:  true,

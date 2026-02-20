@@ -61,6 +61,11 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 		return i.publishReel(post, cred)
 	}
 
+	// Story posts — publish as an Instagram Story
+	if post.PostType == models.PostTypeStory {
+		return i.publishStory(post, cred)
+	}
+
 	// Normal posts — image-based publishing
 	imageMedia := []*models.Media{}
 	for _, media := range post.Media {
@@ -171,6 +176,71 @@ func (i *InstagramPublisher) publishReel(post *models.Post, cred *models.Platfor
 		Platform: models.Instagram,
 		Success:  true,
 		Message:  "Published successfully as Instagram Reel",
+		PostID:   postID,
+	}
+}
+
+// publishStory publishes an image or video as an Instagram Story.
+// Uses the Content Publishing API with media_type STORIES.
+func (i *InstagramPublisher) publishStory(post *models.Post, cred *models.PlatformCredentials) models.PublishResult {
+	if len(post.Media) == 0 {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  "Instagram Stories require at least one image or video attachment",
+		}
+	}
+
+	media := post.Media[0]
+
+	if strings.Contains(strings.ToLower(media.URL), "localhost") || strings.Contains(strings.ToLower(media.URL), "127.0.0.1") {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  "Instagram cannot fetch local media URLs. Use a public BASE_URL (e.g. HTTPS domain or tunnel) so Meta servers can access your files",
+		}
+	}
+
+	// Build the container parameters based on media type
+	containerParams := map[string]string{
+		"media_type": "STORIES",
+	}
+	if media.Type == models.MediaVideo {
+		containerParams["video_url"] = media.URL
+	} else {
+		containerParams["image_url"] = media.URL
+	}
+
+	containerID, err := i.createMediaContainer(cred.PlatformUserID, cred.AccessToken, containerParams)
+	if err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error creating Instagram Story container: %v", err),
+		}
+	}
+
+	if err := i.waitContainerReady(containerID, cred.AccessToken); err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error processing Instagram Story: %v", err),
+		}
+	}
+
+	postID, err := i.publishContainer(cred.PlatformUserID, cred.AccessToken, containerID)
+	if err != nil {
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  fmt.Sprintf("Error publishing Instagram Story: %v", err),
+		}
+	}
+
+	return models.PublishResult{
+		Platform: models.Instagram,
+		Success:  true,
+		Message:  "Published successfully as Instagram Story",
 		PostID:   postID,
 	}
 }

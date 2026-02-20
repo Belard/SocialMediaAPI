@@ -41,9 +41,9 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate post_type value
-	if post.PostType != models.PostTypeNormal && post.PostType != models.PostTypeShort {
+	if post.PostType != models.PostTypeNormal && post.PostType != models.PostTypeShort && post.PostType != models.PostTypeStory {
 		utils.RespondWithError(w, http.StatusBadRequest,
-			"Invalid post_type. Must be 'normal' or 'short'")
+			"Invalid post_type. Must be 'normal', 'short', or 'story'")
 		return
 	}
 
@@ -90,6 +90,28 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		if !hasVideo && len(post.MediaIDs) > 0 {
 			utils.RespondWithError(w, http.StatusBadRequest,
 				"Short posts require at least one video media attachment")
+			return
+		}
+	}
+
+	if post.PostType == models.PostTypeStory {
+		// Story posts only support Facebook and Instagram
+		allowedStoryPlatforms := map[models.Platform]bool{
+			models.Facebook:  true,
+			models.Instagram: true,
+		}
+		for _, p := range post.Platforms {
+			if !allowedStoryPlatforms[p] {
+				utils.RespondWithError(w, http.StatusBadRequest,
+					"Story posts only support facebook and instagram platforms")
+				return
+			}
+		}
+
+		// Story posts require at least one media attachment (image or video)
+		if len(post.MediaIDs) == 0 {
+			utils.RespondWithError(w, http.StatusBadRequest,
+				"Story posts require at least one image or video media attachment")
 			return
 		}
 	}

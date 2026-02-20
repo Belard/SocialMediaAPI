@@ -108,6 +108,16 @@ func (t *TwitterPublisher) Publish(post *models.Post, cred *models.PlatformCrede
 		}
 	}
 
+	// Twitter/X does NOT support stories.
+	if post.PostType == models.PostTypeStory {
+		utils.Warnf("twitter publish rejected: stories not supported post_id=%s", post.ID)
+		return models.PublishResult{
+			Platform: models.Twitter,
+			Success:  false,
+			Message:  "Twitter does not support stories. Use post_type 'normal' instead",
+		}
+	}
+
 	// Publish with or without media
 	var tweetID string
 	var err error

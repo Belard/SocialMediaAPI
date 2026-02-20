@@ -100,6 +100,16 @@ func (y *YouTubePublisher) Publish(post *models.Post, cred *models.PlatformCrede
 		}
 	}
 
+	// YouTube does NOT support stories.
+	if post.PostType == models.PostTypeStory {
+		utils.Warnf("youtube publish rejected: stories not supported post_id=%s", post.ID)
+		return models.PublishResult{
+			Platform: models.YouTube,
+			Success:  false,
+			Message:  "YouTube does not support stories. Use post_type 'normal' or 'short' instead",
+		}
+	}
+
 	// YouTube always requires a video
 	var videoMedia *models.Media
 	for _, media := range post.Media {

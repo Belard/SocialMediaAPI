@@ -106,6 +106,27 @@ func (f *FacebookPublisher) Publish(post *models.Post, cred *models.PlatformCred
 		}
 	}
 
+	// Story posts → publish as Facebook Story
+	if post.PostType == models.PostTypeStory {
+		utils.Infof("facebook publish mode=story post_id=%s page_id=%s", post.ID, pageID)
+		postID, err := f.publishStory(post, pageAccessToken, pageID)
+		if err != nil {
+			utils.Errorf("facebook story publish failed post_id=%s page_id=%s err=%v", post.ID, pageID, err)
+			return models.PublishResult{
+				Platform: models.Facebook,
+				Success:  false,
+				Message:  fmt.Sprintf("Error publishing Facebook Story: %v", err),
+			}
+		}
+		utils.Infof("facebook story publish succeeded post_id=%s page_id=%s external_post_id=%s", post.ID, pageID, postID)
+		return models.PublishResult{
+			Platform: models.Facebook,
+			Success:  true,
+			Message:  "Published successfully as Facebook Story",
+			PostID:   postID,
+		}
+	}
+
 	// Normal posts — existing publishing logic
 	var postID string
 	if len(post.Media) > 0 {
@@ -550,5 +571,194 @@ func (f *FacebookPublisher) publishReel(post *models.Post, pageAccessToken, page
 	json.Unmarshal(finishBody, &finishResult)
 
 	utils.Infof("facebook reel published post_id=%s video_id=%s", post.ID, initResp.VideoID)
+	return initResp.VideoID, nil
+}
+
+// publishStory publishes a photo or video as a Facebook Page Story.
+// Uses the Page Stories API: POST /{page-id}/stories with either a photo_id or video_id.
+func (f *FacebookPublisher) publishStory(post *models.Post, pageAccessToken, pageID string) (string, error) {
+	cfg := config.Load()
+	utils.Infof("facebook story publish start post_id=%s page_id=%s media_count=%d", post.ID, pageID, len(post.Media))
+
+	if len(post.Media) == 0 {
+		return "", fmt.Errorf("Facebook Stories require at least one image or video attachment")
+	}
+
+	media := post.Media[0]
+
+	if media.Type == models.MediaImage {
+		return f.publishStoryPhoto(post, media, pageAccessToken, pageID, cfg)
+	} else if media.Type == models.MediaVideo {
+		return f.publishStoryVideo(post, media, pageAccessToken, pageID, cfg)
+	}
+
+	return "", fmt.Errorf("unsupported media type for Facebook Story: %s", media.Type)
+}
+
+// publishStoryPhoto uploads a photo as unpublished, then creates a photo story.
+func (f *FacebookPublisher) publishStoryPhoto(post *models.Post, media *models.Media, pageAccessToken, pageID string, cfg *config.Config) (string, error) {
+	utils.Debugf("facebook story photo upload start post_id=%s page_id=%s media_id=%s", post.ID, pageID, media.ID)
+
+	// Upload the photo as unpublished first
+	photoID, err := f.uploadPhoto(media, pageAccessToken, pageID, false, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to upload photo for story: %w", err)
+	}
+	utils.Debugf("facebook story photo uploaded post_id=%s photo_id=%s", post.ID, photoID)
+
+	// Create the story with the uploaded photo
+	storyURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/stories", cfg.FacebookVersion, pageID)
+
+	payload := map[string]string{
+		"photo_id": photoID,
+	}
+	jsonData, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", storyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+
+	resp, err := f.httpClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Facebook Story creation request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		var fbError FacebookErrorResponse
+		json.Unmarshal(body, &fbError)
+		utils.Errorf("facebook story photo API error post_id=%s status=%d message=%s", post.ID, resp.StatusCode, fbError.Error.Message)
+		return "", fmt.Errorf("Facebook Story photo error: %s", fbError.Error.Message)
+	}
+
+	var storyResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &storyResp); err != nil {
+		return "", fmt.Errorf("failed to parse story response: %w", err)
+	}
+
+	utils.Infof("facebook story photo published post_id=%s story_id=%s", post.ID, storyResp.ID)
+	return storyResp.ID, nil
+}
+
+// publishStoryVideo uploads a video and then creates a video story.
+// Uses the resumable upload flow similar to Reels, then posts to /{page-id}/stories.
+func (f *FacebookPublisher) publishStoryVideo(post *models.Post, media *models.Media, pageAccessToken, pageID string, cfg *config.Config) (string, error) {
+	utils.Debugf("facebook story video upload start post_id=%s page_id=%s media_id=%s", post.ID, pageID, media.ID)
+
+	// Step 1: Initialize the video upload via the video_stories endpoint
+	initURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/video_stories", cfg.FacebookVersion, pageID)
+
+	initPayload := map[string]string{
+		"upload_phase": "start",
+	}
+	jsonData, _ := json.Marshal(initPayload)
+
+	req, err := http.NewRequest("POST", initURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+
+	resp, err := f.httpClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Facebook Story video init request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		var fbError FacebookErrorResponse
+		json.Unmarshal(body, &fbError)
+		utils.Errorf("facebook story video init API error post_id=%s status=%d message=%s", post.ID, resp.StatusCode, fbError.Error.Message)
+		return "", fmt.Errorf("Facebook Story video init error: %s", fbError.Error.Message)
+	}
+
+	var initResp struct {
+		VideoID   string `json:"video_id"`
+		UploadURL string `json:"upload_url"`
+	}
+	if err := json.Unmarshal(body, &initResp); err != nil {
+		return "", fmt.Errorf("failed to parse story video init response: %w", err)
+	}
+	utils.Debugf("facebook story video init success post_id=%s video_id=%s", post.ID, initResp.VideoID)
+
+	// Step 2: Upload the video binary
+	videoFile, err := os.Open(media.Path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open video file: %w", err)
+	}
+	defer videoFile.Close()
+
+	stat, err := videoFile.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to stat video file: %w", err)
+	}
+
+	uploadReq, err := http.NewRequest("POST", initResp.UploadURL, videoFile)
+	if err != nil {
+		return "", err
+	}
+	uploadReq.Header.Set("Authorization", "OAuth "+pageAccessToken)
+	uploadReq.Header.Set("offset", "0")
+	uploadReq.Header.Set("file_size", fmt.Sprintf("%d", stat.Size()))
+	uploadReq.ContentLength = stat.Size()
+
+	uploadResp, err := f.httpClient().Do(uploadReq)
+	if err != nil {
+		return "", fmt.Errorf("story video upload request failed: %w", err)
+	}
+	defer uploadResp.Body.Close()
+
+	uploadBody, _ := io.ReadAll(uploadResp.Body)
+	if uploadResp.StatusCode != http.StatusOK {
+		utils.Errorf("facebook story video upload API error post_id=%s status=%d body=%s", post.ID, uploadResp.StatusCode, string(uploadBody))
+		return "", fmt.Errorf("Facebook Story video upload error: %s", string(uploadBody))
+	}
+	utils.Debugf("facebook story video upload success post_id=%s video_id=%s", post.ID, initResp.VideoID)
+
+	// Step 3: Finish publishing the story
+	finishURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/video_stories", cfg.FacebookVersion, pageID)
+
+	finishPayload := map[string]string{
+		"upload_phase": "finish",
+		"video_id":     initResp.VideoID,
+	}
+	jsonData, _ = json.Marshal(finishPayload)
+
+	finishReq, err := http.NewRequest("POST", finishURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	finishReq.Header.Set("Content-Type", "application/json")
+	finishReq.Header.Set("Authorization", "Bearer "+pageAccessToken)
+
+	finishResp, err := f.httpClient().Do(finishReq)
+	if err != nil {
+		return "", fmt.Errorf("story video finish request failed: %w", err)
+	}
+	defer finishResp.Body.Close()
+
+	finishBody, _ := io.ReadAll(finishResp.Body)
+	if finishResp.StatusCode != http.StatusOK {
+		var fbError FacebookErrorResponse
+		json.Unmarshal(finishBody, &fbError)
+		utils.Errorf("facebook story video finish API error post_id=%s status=%d message=%s", post.ID, finishResp.StatusCode, fbError.Error.Message)
+		return "", fmt.Errorf("Facebook Story video publish error: %s", fbError.Error.Message)
+	}
+
+	var finishResult struct {
+		Success bool   `json:"success"`
+		ID      string `json:"id"`
+	}
+	json.Unmarshal(finishBody, &finishResult)
+
+	utils.Infof("facebook story video published post_id=%s video_id=%s", post.ID, initResp.VideoID)
 	return initResp.VideoID, nil
 }

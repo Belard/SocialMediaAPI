@@ -55,7 +55,7 @@ func (t *TikTokPublisher) Publish(post *models.Post, cred *models.PlatformCreden
 
 	// TikTok only supports short-form video posts
 	if post.PostType != models.PostTypeShort {
-		utils.Warnf("tiktok publish rejected: not a short post post_id=%s post_type=%s", post.ID, post.PostType)
+		utils.Warnf("tiktok publish rejected: unsupported post_type post_id=%s post_type=%s", post.ID, post.PostType)
 		return models.PublishResult{
 			Platform: models.TikTok,
 			Success:  false,

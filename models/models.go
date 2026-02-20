@@ -27,6 +27,7 @@ type PostType string
 const (
 	PostTypeNormal PostType = "normal"
 	PostTypeShort  PostType = "short"
+	PostTypeStory  PostType = "story"
 )
 
 type MediaType string
