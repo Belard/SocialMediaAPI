@@ -5,6 +5,8 @@ import (
 	"SocialMediaAPI/models"
 	"SocialMediaAPI/utils"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -49,9 +51,11 @@ func (h *Handler) InitiateTikTokOAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Generate PKCE code_verifier (43-128 characters, URL-safe)
 	codeVerifier := generateCodeVerifier()
-	// TikTok accepts S256 or plain; we use plain for simplicity (they also accept it).
-	// Store code_verifier in the state data so we can retrieve it on callback.
+	// Store code_verifier so we can send it during token exchange.
 	h.oauthStateService.StoreCodeVerifier(state, codeVerifier)
+
+	// Derive S256 code_challenge = BASE64URL(SHA256(ASCII(code_verifier)))
+	codeChallenge := generateCodeChallenge(codeVerifier)
 
 	// TikTok OAuth 2.0 Authorization URL
 	params := url.Values{}
@@ -64,7 +68,7 @@ func (h *Handler) InitiateTikTokOAuth(w http.ResponseWriter, r *http.Request) {
 		"video.upload",
 	}, ","))
 	params.Set("state", state)
-	params.Set("code_challenge", codeVerifier)
+	params.Set("code_challenge", codeChallenge)
 	params.Set("code_challenge_method", "S256")
 
 	authURL := "https://www.tiktok.com/v2/auth/authorize/?" + params.Encode()
@@ -235,4 +239,11 @@ func generateCodeVerifier() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// generateCodeChallenge derives the S256 code challenge from a code verifier:
+// code_challenge = BASE64URL(SHA256(ASCII(code_verifier)))
+func generateCodeChallenge(verifier string) string {
+	h := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(h[:])
 }
