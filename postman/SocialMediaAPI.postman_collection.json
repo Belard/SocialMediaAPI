@@ -109,6 +109,26 @@
           }
         },
         {
+          "name": "Initiate Twitter OAuth (Auth Required)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": "{{base_url}}/api/auth/twitter"
+          }
+        },
+        {
+          "name": "Initiate YouTube OAuth (Auth Required)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": "{{base_url}}/api/auth/youtube"
+          }
+        },
+        {
           "name": "Facebook OAuth Callback (manual test)",
           "request": {
             "method": "GET",
@@ -127,6 +147,20 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/auth/tiktok/callback?code=TEST_CODE&state=TEST_STATE"
+          }
+        },
+        {
+          "name": "Twitter OAuth Callback (manual test)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/twitter/callback?code=TEST_CODE&state=TEST_STATE"
+          }
+        },
+        {
+          "name": "YouTube OAuth Callback (manual test)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/youtube/callback?code=TEST_CODE&state=TEST_STATE"
           }
         },
         {
@@ -260,7 +294,7 @@
       "item": [
         {
           "name": "Create Normal Post (sets post_id)",
-          "description": "Creates a normal post. Normal posts support facebook, instagram, linkedin, twitter — but NOT tiktok.",
+          "description": "Creates a normal post. Normal posts support facebook, instagram, linkedin, twitter — but NOT tiktok. YouTube requires video media for normal posts.",
           "event": [
             {
               "listen": "test",
@@ -292,7 +326,7 @@
         },
         {
           "name": "Create Short Post / Reel (sets post_id)",
-          "description": "Creates a short-form video post. Published as a Reel on Instagram, a Reel on Facebook, and a video on TikTok. Requires video media. Only supports instagram, facebook, and tiktok.",
+          "description": "Creates a short-form video post. Published as a Reel on Instagram, a Reel on Facebook, a video on TikTok, and a YouTube Short. Twitter does not support shorts. Requires video media. Supports instagram, facebook, tiktok, and youtube.",
           "event": [
             {
               "listen": "test",
@@ -316,7 +350,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Check out this short video!\",\n  \"post_type\": \"short\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
+              "raw": "{\n  \"content\": \"Check out this short video!\",\n  \"post_type\": \"short\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\", \"youtube\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/posts"

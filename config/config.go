@@ -25,6 +25,9 @@ type Config struct {
 	TwitterClientID      string
 	TwitterClientSecret  string
 	TwitterRedirectURI   string
+	YouTubeClientID      string
+	YouTubeClientSecret  string
+	YouTubeRedirectURI   string
 	TokenEncryptionKey   []byte
 	TLSEnabled           bool
 	TLSCertFile          string
@@ -55,6 +58,9 @@ func Load() *Config {
 		TwitterClientID:      getEnv("TWITTER_CLIENT_ID", ""),
 		TwitterClientSecret:  getEnv("TWITTER_CLIENT_SECRET", ""),
 		TwitterRedirectURI:   getEnv("TWITTER_REDIRECT_URI", ""),
+		YouTubeClientID:      getEnv("YOUTUBE_CLIENT_ID", ""),
+		YouTubeClientSecret:  getEnv("YOUTUBE_CLIENT_SECRET", ""),
+		YouTubeRedirectURI:   getEnv("YOUTUBE_REDIRECT_URI", ""),
 		TokenEncryptionKey:   []byte(getEnv("TOKEN_ENCRYPTION_KEY", "your-secret-token-encryption-key-change-in-production")),
 		TLSEnabled:           getEnv("TLS_ENABLED", "false") == "true",
 		TLSCertFile:          getEnv("TLS_CERT_FILE", "./certs/server.crt"),

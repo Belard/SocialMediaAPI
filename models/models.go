@@ -10,6 +10,7 @@ const (
 	LinkedIn  Platform = "linkedin"
 	Instagram Platform = "instagram"
 	TikTok    Platform = "tiktok"
+	YouTube   Platform = "youtube"
 )
 
 type PostStatus string

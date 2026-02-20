@@ -23,6 +23,10 @@ When working on this codebase:
 
 6. **Language & Locale**: When responding in Portuguese, always use **European Portuguese (pt-PT)**, not Brazilian Portuguese. When responding in English, always use **American English (en-US)**.
 
+7. **Postman Collection Sync**: Whenever an API endpoint is created or modified (route, method, request body, query params, headers, or response shape), **always update** the Postman collection at [postman/SocialMediaAPI.postman_collection.json](postman/SocialMediaAPI.postman_collection.json) to reflect the change. This includes adding new requests, updating existing ones, and removing deleted endpoints.
+
+8. **Environment Example Sync**: Whenever [config/config.go](config/config.go) is updated with new, renamed, or removed environment variables, **always update** [.env.example](.env.example) accordingly — add new variables with sensible placeholder values, update renamed ones, and remove deleted ones.
+
 ---
 
 ## Architecture Overview
