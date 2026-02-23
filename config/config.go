@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -38,6 +39,9 @@ type Config struct {
 	TLSKeyFile           string
 	MediaSigningKey      []byte
 	MediaURLExpiry       time.Duration
+
+	// CORS
+	CORSAllowedOrigins []string // Comma-separated list via CORS_ALLOWED_ORIGINS env var
 
 	// Rate limiting
 	RateLimitRPS         float64       // Sustained requests per second (global, per IP)
@@ -80,6 +84,8 @@ func Load() *Config {
 		MediaSigningKey:      []byte(getEnv("MEDIA_SIGNING_KEY", getEnv("JWT_SECRET", "your-secret-key-change-in-production"))),
 		MediaURLExpiry:       getEnvDuration("MEDIA_URL_EXPIRY_HOURS", 1),
 
+		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", nil),
+
 		RateLimitRPS:       getEnvFloat("RATE_LIMIT_RPS", 10),
 		RateLimitBurst:     getEnvFloat("RATE_LIMIT_BURST", 20),
 		AuthRateLimitRPS:   getEnvFloat("AUTH_RATE_LIMIT_RPS", 1),
@@ -92,6 +98,28 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvList reads a comma-separated environment variable into a string slice.
+// Leading/trailing whitespace around each element is trimmed. Empty entries are
+// discarded. Returns defaultVal when the variable is unset or empty.
+func getEnvList(key string, defaultVal []string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return defaultVal
+	}
+	return out
 }
 
 // getEnvFloat reads an environment variable as a float64.

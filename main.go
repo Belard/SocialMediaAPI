@@ -60,6 +60,17 @@ func main() {
 func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *services.AuthService, cfg *config.Config) *mux.Router {
 	r := mux.NewRouter()
 
+	// ── CORS ────────────────────────────────────────────────────────
+	corsCfg := middleware.DefaultCORSConfig()
+	if len(cfg.CORSAllowedOrigins) > 0 {
+		corsCfg.AllowedOrigins = cfg.CORSAllowedOrigins
+	} else {
+		// Default: allow same-origin only (no origins → no CORS headers).
+		// Set CORS_ALLOWED_ORIGINS env var for production frontends.
+		log.Println("WARNING: CORS_ALLOWED_ORIGINS is not set — cross-origin requests will be blocked by browsers")
+	}
+	r.Use(middleware.CORS(corsCfg))
+
 	// ── Global rate limiter (per-IP) ────────────────────────────────
 	globalLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	r.Use(globalLimiter.Limit())
