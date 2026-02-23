@@ -80,8 +80,12 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 
 	// Public routes
 	r.HandleFunc("/health", h.HealthCheck).Methods("GET")
-	r.HandleFunc("/api/auth/register", authLimiter.LimitHandler(h.Register)).Methods("POST")
-	r.HandleFunc("/api/auth/login", authLimiter.LimitHandler(h.Login)).Methods("POST")
+	// Body limits: 1 MB for JSON routes, MaxUploadSize for file uploads.
+	// Applied per-handler (not globally) so upload routes aren't capped at 1 MB.
+	jsonLimit := int64(1 << 20) // 1 MB
+
+	r.HandleFunc("/api/auth/register", middleware.BodyLimitHandler(jsonLimit, authLimiter.LimitHandler(h.Register))).Methods("POST")
+	r.HandleFunc("/api/auth/login", middleware.BodyLimitHandler(jsonLimit, authLimiter.LimitHandler(h.Login))).Methods("POST")
 
 	// OAuth routes (public - no JWT required for callback)
 	r.HandleFunc("/auth/facebook/callback", oh.HandleFacebookCallback).Methods("GET")
@@ -109,17 +113,17 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 	protected.HandleFunc("/auth/youtube", oh.InitiateYouTubeOAuth).Methods("GET")
 
 	// Credentials
-	protected.HandleFunc("/credentials", h.SaveCredentials).Methods("POST")
+	protected.HandleFunc("/credentials", middleware.BodyLimitHandler(jsonLimit, h.SaveCredentials)).Methods("POST")
 	protected.HandleFunc("/credentials/status", h.GetConnectedPlatforms).Methods("GET")
 	protected.HandleFunc("/credentials/disconnect", h.DisconnectPlatform).Methods("DELETE")
 
-	// Media
-	protected.HandleFunc("/media", h.UploadMedia).Methods("POST")
+	// Media (upload gets a higher body limit to allow large files)
+	protected.HandleFunc("/media", middleware.BodyLimitHandler(cfg.MaxUploadSize, h.UploadMedia)).Methods("POST")
 	protected.HandleFunc("/media", h.GetMedia).Methods("GET")
 	protected.HandleFunc("/media/{id}", h.DeleteMedia).Methods("DELETE")
 
 	// Posts
-	protected.HandleFunc("/posts", h.CreatePost).Methods("POST")
+	protected.HandleFunc("/posts", middleware.BodyLimitHandler(jsonLimit, h.CreatePost)).Methods("POST")
 	protected.HandleFunc("/posts", h.GetPosts).Methods("GET")
 	protected.HandleFunc("/posts/{id}", h.GetPost).Methods("GET")
 

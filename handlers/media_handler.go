@@ -35,6 +35,9 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("Received upload request from user %s with Content-Length %d bytes\n", userID, r.ContentLength)
+	fmt.Printf("MaxUploadSize: %d bytes\n", cfg.MaxUploadSize)
+
 	if err := r.ParseMultipartForm(cfg.MaxUploadSize); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "File too large or malformed multipart request")
 		return
