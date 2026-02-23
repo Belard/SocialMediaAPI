@@ -38,7 +38,7 @@ func main() {
 	handler := handlers.NewHandler(db, publisher, authService, storage)
 	oauthHandler := oauth.NewOAuthHandler(db, oauthStateService)
 
-	r := setupRoutes(handler, oauthHandler, authService)
+	r := setupRoutes(handler, oauthHandler, authService, cfg)
 
 	log.Printf("Server starting on port %s...", cfg.Port)
 	log.Printf("Upload directory: %s", cfg.UploadDir)
@@ -57,13 +57,20 @@ func main() {
 	}
 }
 
-func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *services.AuthService) *mux.Router {
+func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *services.AuthService, cfg *config.Config) *mux.Router {
 	r := mux.NewRouter()
+
+	// ── Global rate limiter (per-IP) ────────────────────────────────
+	globalLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	r.Use(globalLimiter.Limit())
+
+	// ── Stricter limiter for auth endpoints ─────────────────────────
+	authLimiter := middleware.NewRateLimiter(cfg.AuthRateLimitRPS, cfg.AuthRateLimitBurst)
 
 	// Public routes
 	r.HandleFunc("/health", h.HealthCheck).Methods("GET")
-	r.HandleFunc("/api/auth/register", h.Register).Methods("POST")
-	r.HandleFunc("/api/auth/login", h.Login).Methods("POST")
+	r.HandleFunc("/api/auth/register", authLimiter.LimitHandler(h.Register)).Methods("POST")
+	r.HandleFunc("/api/auth/login", authLimiter.LimitHandler(h.Login)).Methods("POST")
 
 	// OAuth routes (public - no JWT required for callback)
 	r.HandleFunc("/auth/facebook/callback", oh.HandleFacebookCallback).Methods("GET")
@@ -76,7 +83,6 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 	r.HandleFunc("/oauth/error", oh.OAuthErrorPage).Methods("GET")
 
 	// Static file serving — signed URLs required (HMAC + expiration).
-	cfg := config.Load()
 	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/",
 		middleware.SignedFileServer(cfg.UploadDir, cfg.MediaSigningKey, authService)))
 

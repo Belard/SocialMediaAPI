@@ -38,6 +38,12 @@ type Config struct {
 	TLSKeyFile           string
 	MediaSigningKey      []byte
 	MediaURLExpiry       time.Duration
+
+	// Rate limiting
+	RateLimitRPS         float64       // Sustained requests per second (global, per IP)
+	RateLimitBurst       float64       // Max burst capacity (global, per IP)
+	AuthRateLimitRPS     float64       // Sustained RPS for auth endpoints (login/register)
+	AuthRateLimitBurst   float64       // Burst capacity for auth endpoints
 }
 
 func Load() *Config {
@@ -73,6 +79,11 @@ func Load() *Config {
 		TLSKeyFile:           getEnv("TLS_KEY_FILE", "./certs/server.key"),
 		MediaSigningKey:      []byte(getEnv("MEDIA_SIGNING_KEY", getEnv("JWT_SECRET", "your-secret-key-change-in-production"))),
 		MediaURLExpiry:       getEnvDuration("MEDIA_URL_EXPIRY_HOURS", 1),
+
+		RateLimitRPS:       getEnvFloat("RATE_LIMIT_RPS", 10),
+		RateLimitBurst:     getEnvFloat("RATE_LIMIT_BURST", 20),
+		AuthRateLimitRPS:   getEnvFloat("AUTH_RATE_LIMIT_RPS", 1),
+		AuthRateLimitBurst: getEnvFloat("AUTH_RATE_LIMIT_BURST", 5),
 	}
 }
 
@@ -81,6 +92,17 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvFloat reads an environment variable as a float64.
+// Falls back to defaultVal when unset or invalid.
+func getEnvFloat(key string, defaultVal float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			return f
+		}
+	}
+	return defaultVal
 }
 
 // getEnvDuration reads an environment variable as an integer number of hours
