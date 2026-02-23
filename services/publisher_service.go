@@ -1,6 +1,7 @@
 package services
 
 import (
+	"SocialMediaAPI/config"
 	"SocialMediaAPI/database"
 	"SocialMediaAPI/models"
 	"SocialMediaAPI/publishers"
@@ -30,6 +31,16 @@ func NewPublisherService(db *database.Database) *PublisherService {
 
 func (ps *PublisherService) PublishPost(post *models.Post) []models.PublishResult {
 	utils.Infof("starting publish post_id=%s user_id=%s platforms=%d media=%d", post.ID, post.UserID, len(post.Platforms), len(post.Media))
+
+	// Sign media URLs with a generous expiry so external platform servers
+	// (Instagram, Facebook, TikTok, etc.) can fetch the files during
+	// async processing. We use 4× the normal expiry to cover video
+	// transcoding and carousel container creation.
+	if len(post.Media) > 0 {
+		cfg := config.Load()
+		publishExpiry := cfg.MediaURLExpiry * 4
+		post.Media = utils.SignMediaList(post.Media, cfg.MediaSigningKey, publishExpiry)
+	}
 
 	var wg sync.WaitGroup
 	results := make([]models.PublishResult, len(post.Platforms))

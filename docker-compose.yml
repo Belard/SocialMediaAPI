@@ -25,7 +25,7 @@ services:
       # Container-specific overrides (override values from .env when needed)
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/multiplatform?sslmode=disable
       UPLOAD_DIR: /app/uploads
-      BASE_URL: http://localhost:8080
+      BASE_URL: https://localhost:8080
       PORT: 8080
       TLS_CERT_FILE: /app/certs/server.crt
       TLS_KEY_FILE: /app/certs/server.key

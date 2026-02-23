@@ -79,6 +79,7 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return a signed URL so the client (and platform APIs) can fetch the file.
 	utils.RespondWithJSON(w, http.StatusCreated, models.UploadResponse{Media: media})
 }
 

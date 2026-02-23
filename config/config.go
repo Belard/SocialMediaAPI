@@ -1,6 +1,10 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+	"time"
+)
 
 type Config struct {
 	DatabaseURL          string
@@ -32,6 +36,8 @@ type Config struct {
 	TLSEnabled           bool
 	TLSCertFile          string
 	TLSKeyFile           string
+	MediaSigningKey      []byte
+	MediaURLExpiry       time.Duration
 }
 
 func Load() *Config {
@@ -65,6 +71,8 @@ func Load() *Config {
 		TLSEnabled:           getEnv("TLS_ENABLED", "false") == "true",
 		TLSCertFile:          getEnv("TLS_CERT_FILE", "./certs/server.crt"),
 		TLSKeyFile:           getEnv("TLS_KEY_FILE", "./certs/server.key"),
+		MediaSigningKey:      []byte(getEnv("MEDIA_SIGNING_KEY", getEnv("JWT_SECRET", "your-secret-key-change-in-production"))),
+		MediaURLExpiry:       getEnvDuration("MEDIA_URL_EXPIRY_HOURS", 1),
 	}
 }
 
@@ -73,4 +81,15 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvDuration reads an environment variable as an integer number of hours
+// and returns a time.Duration. Falls back to defaultHours when unset or invalid.
+func getEnvDuration(key string, defaultHours int) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if h, err := strconv.Atoi(v); err == nil && h > 0 {
+			return time.Duration(h) * time.Hour
+		}
+	}
+	return time.Duration(defaultHours) * time.Hour
 }
