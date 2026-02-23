@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -48,10 +49,21 @@ type Config struct {
 	RateLimitBurst       float64       // Max burst capacity (global, per IP)
 	AuthRateLimitRPS     float64       // Sustained RPS for auth endpoints (login/register)
 	AuthRateLimitBurst   float64       // Burst capacity for auth endpoints
+
+	// Environment
+	Env                  string        // "production", "staging", or "development" (default)
+}
+
+// insecureDefaults are the hard-coded fallback values that ship with the source
+// code. If any secret still matches one of these in production, the server
+// refuses to start.
+var insecureDefaults = map[string]bool{
+	"your-secret-key-change-in-production":                true,
+	"your-secret-token-encryption-key-change-in-production": true,
 }
 
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		DatabaseURL:          getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/multiplatform?sslmode=disable"),
 		JWTSecret:            []byte(getEnv("JWT_SECRET", "your-secret-key-change-in-production")),
 		Port:                 getEnv("PORT", "8080"),
@@ -90,6 +102,64 @@ func Load() *Config {
 		RateLimitBurst:     getEnvFloat("RATE_LIMIT_BURST", 20),
 		AuthRateLimitRPS:   getEnvFloat("AUTH_RATE_LIMIT_RPS", 1),
 		AuthRateLimitBurst: getEnvFloat("AUTH_RATE_LIMIT_BURST", 5),
+
+		Env: strings.ToLower(getEnv("GO_ENV", "development")),
+	}
+
+	cfg.validateSecrets()
+	return cfg
+}
+
+// ValidateSecret describes a single secret validation result.
+type SecretIssue struct {
+	Name    string // env var name (e.g. "JWT_SECRET")
+	Message string // human-readable description of the problem
+}
+
+// AuditSecrets checks all critical secrets and returns a list of issues found.
+// This is the public API that callers (e.g. main.go) use to decide whether to
+// warn or fatally exit, using whatever logger they prefer.
+func (c *Config) AuditSecrets() []SecretIssue {
+	type secretCheck struct {
+		name  string
+		value string
+	}
+
+	checks := []secretCheck{
+		{"JWT_SECRET", string(c.JWTSecret)},
+		{"TOKEN_ENCRYPTION_KEY", string(c.TokenEncryptionKey)},
+		{"MEDIA_SIGNING_KEY", string(c.MediaSigningKey)},
+	}
+
+	var issues []SecretIssue
+	for _, s := range checks {
+		if s.value == "" || insecureDefaults[s.value] {
+			issues = append(issues, SecretIssue{
+				Name:    s.name,
+				Message: s.name + " is not set or is using the insecure default value. Set a strong, unique value via environment variable.",
+			})
+		} else if len(s.value) < 32 {
+			issues = append(issues, SecretIssue{
+				Name:    s.name,
+				Message: s.name + " is shorter than 32 characters. Use at least 32 characters for adequate security.",
+			})
+		}
+	}
+	return issues
+}
+
+// validateSecrets checks that critical secrets are not left at their insecure
+// defaults. In production (GO_ENV=production) this is fatal. In other
+// environments it emits a loud warning so developers are aware.
+// NOTE: uses stdlib log here to avoid an import cycle (utils imports config).
+func (c *Config) validateSecrets() {
+	issues := c.AuditSecrets()
+	for _, issue := range issues {
+		if c.Env == "production" || c.Env == "staging" {
+			log.Fatalf("FATAL SECURITY: %s", issue.Message)
+		} else {
+			log.Printf("WARNING SECURITY: %s", issue.Message)
+		}
 	}
 }
 

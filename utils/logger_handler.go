@@ -18,6 +18,7 @@ const (
 	LogLevelInfo
 	LogLevelWarn
 	LogLevelError
+	LogLevelFatal
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 	colorGreen  = "\033[32m"
 	colorYellow = "\033[33m"
 	colorRed    = "\033[31m"
+	colorBgRed  = "\033[41;97m" // bright white on red background
 )
 
 type LoggerHandler struct {
@@ -96,11 +98,20 @@ func (l *LoggerHandler) Errorf(format string, args ...interface{}) {
 	l.logf(LogLevelError, format, args...)
 }
 
+// Fatalf logs a FATAL-level message and then terminates the process with
+// exit code 1. This bypasses the level filter — fatal messages are always
+// printed regardless of the configured log level.
+func (l *LoggerHandler) Fatalf(format string, args ...interface{}) {
+	l.logf(LogLevelFatal, format, args...)
+	os.Exit(1)
+}
+
 func (l *LoggerHandler) logf(level LogLevel, format string, args ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if level < l.level {
+	// Fatal messages always print; everything else respects the level filter.
+	if level != LogLevelFatal && level < l.level {
 		return
 	}
 
@@ -153,6 +164,8 @@ func levelToText(level LogLevel) string {
 		return "WARN"
 	case LogLevelError:
 		return "ERROR"
+	case LogLevelFatal:
+		return "FATAL"
 	default:
 		return "INFO"
 	}
@@ -168,6 +181,8 @@ func levelToColor(level LogLevel) string {
 		return colorYellow
 	case LogLevelError:
 		return colorRed
+	case LogLevelFatal:
+		return colorBgRed
 	default:
 		return colorGreen
 	}
@@ -197,4 +212,8 @@ func Warnf(format string, args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	defaultLogger.Errorf(format, args...)
+}
+
+func Fatalf(format string, args ...interface{}) {
+	defaultLogger.Fatalf(format, args...)
 }
