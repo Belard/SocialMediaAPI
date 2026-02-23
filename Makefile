@@ -16,23 +16,23 @@ dev: ## Run with hot reload (requires air: go install github.com/cosmtrek/air@la
 	air
 
 docker-up: ## Start all services with Docker Compose
-	docker-compose up -d
+	docker compose up -d
 
 docker-down: ## Stop all Docker services
-	docker-compose down
+	docker compose down
 
 docker-logs: ## Show Docker logs
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-rebuild: ## Rebuild and restart Docker services
-	docker-compose down
-	docker-compose build --no-cache
-	docker-compose up -d
+	docker compose down
+	docker compose build --no-cache
+	docker compose up -d
 
 docker-rebuild-logs: ## Rebuild and restart Docker services with logs
-	docker-compose down
-	docker-compose build --no-cache
-	docker-compose up
+	docker compose down
+	docker compose build --no-cache
+	docker compose up
 
 clean: ## Clean build artifacts
 	rm -rf bin/
@@ -54,7 +54,7 @@ install: ## Install dependencies
 	go mod tidy
 
 db-only: ## Start only PostgreSQL
-	docker-compose up -d postgres
+	docker compose up -d postgres
 
 db-connect: ## Connect to PostgreSQL CLI
 	docker exec -it multiplatform-postgres psql -U postgres -d multiplatform
