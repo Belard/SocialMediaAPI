@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: multiplatform
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,13 +25,13 @@ services:
       # Container-specific overrides (override values from .env when needed)
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/multiplatform?sslmode=disable
       UPLOAD_DIR: /app/uploads
-      BASE_URL: https://localhost:8080
-      PORT: 8080
+      BASE_URL: https://localhost:3001
+      PORT: 3001
       TLS_CERT_FILE: /app/certs/server.crt
       TLS_KEY_FILE: /app/certs/server.key
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "3001:3001"
+      - "3443:3443"
     volumes:
       - ./uploads:/app/uploads
       - ./certs:/app/certs:ro

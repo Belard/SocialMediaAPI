@@ -35,7 +35,7 @@ COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh && chown appuser:appgroup /app/main
 
 # Entrypoint runs as root, fixes bind-mount ownership, then drops to appuser
-EXPOSE 8080
+EXPOSE 3001
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["./main"]

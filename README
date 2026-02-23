@@ -25,7 +25,7 @@ make docker-logs
 make docker-down
 ```
 
-The API will be available at `http://localhost:8080`
+The API will be available at `http://localhost:3001`
 
 ### Option 2: Local Development
 
@@ -202,10 +202,10 @@ GET /auth/instagram/callback
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://postgres:postgres@localhost:5432/multiplatform?sslmode=disable` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://postgres:postgres@localhost:5433/multiplatform?sslmode=disable` |
 | `JWT_SECRET` | Secret key for JWT tokens | `your-secret-key-change-in-production` |
-| `PORT` | Server port | `8080` |
-| `BASE_URL` | Base URL for file serving | `http://localhost:8080` |
+| `PORT` | Server port | `3001` |
+| `BASE_URL` | Base URL for file serving | `http://localhost:3001` |
 | `UPLOAD_DIR` | Directory for uploaded files | `./uploads` |
 | `FACEBOOK_APP_ID` | Meta app ID for Facebook OAuth | `` |
 | `FACEBOOK_APP_SECRET` | Meta app secret for Facebook OAuth | `` |

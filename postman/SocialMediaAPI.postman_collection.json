@@ -6,7 +6,7 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "https://localhost:8080" },
+    { "key": "base_url", "value": "https://localhost:3001" },
     { "key": "jwt_token", "value": "" },
     { "key": "user_id", "value": "" },
     { "key": "post_id", "value": "" },

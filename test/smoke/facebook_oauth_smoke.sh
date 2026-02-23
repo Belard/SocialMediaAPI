@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL:-http://localhost:3001}"
 PASSWORD="${SMOKE_TEST_PASSWORD:-SmokePass123!}"
 VERBOSE="${SMOKE_VERBOSE:-1}"
 LOG_BODY="${SMOKE_LOG_BODY:-0}"

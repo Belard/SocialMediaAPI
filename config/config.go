@@ -64,10 +64,10 @@ var insecureDefaults = map[string]bool{
 
 func Load() *Config {
 	cfg := &Config{
-		DatabaseURL:          getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/multiplatform?sslmode=disable"),
+		DatabaseURL:          getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5433/multiplatform?sslmode=disable"),
 		JWTSecret:            []byte(getEnv("JWT_SECRET", "your-secret-key-change-in-production")),
-		Port:                 getEnv("PORT", "8080"),
-		BaseURL:              getEnv("BASE_URL", "http://localhost:8080"),
+		Port:                 getEnv("PORT", "3001"),
+		BaseURL:              getEnv("BASE_URL", "http://localhost:3001"),
 		UploadDir:            getEnv("UPLOAD_DIR", "./uploads"),
 		MaxUploadSize:        100 << 20,                           // 100 MB (overall form limit)
 		MaxImageUploadSize:   10 << 20,                            // 10 MB
