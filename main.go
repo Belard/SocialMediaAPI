@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"SocialMediaAPI/config"
 	"SocialMediaAPI/database"
@@ -33,7 +39,6 @@ func main() {
 
 	scheduler := services.NewScheduler(db, publisher)
 	scheduler.Start()
-	defer scheduler.Stop()
 
 	handler := handlers.NewHandler(db, publisher, authService, storage)
 	oauthHandler := oauth.NewOAuthHandler(db, oauthStateService)
@@ -44,17 +49,58 @@ func main() {
 	log.Printf("Upload directory: %s", cfg.UploadDir)
 	printEndpoints()
 
+	// ── HTTP server with timeouts ───────────────────────────────────
+	// ReadTimeout:  max time to read the entire request (headers + body).
+	//              Set high enough for large file uploads (100 MB at ~1 MB/s ≈ 100s).
+	// WriteTimeout: max time from end of request read to end of response write.
+	//              Must cover the longest handler (e.g. publishing to multiple platforms).
+	// IdleTimeout:  max time a keep-alive connection sits idle before being closed.
+	srv := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  2 * time.Minute,
+		WriteTimeout: 2 * time.Minute,
+		IdleTimeout:  120 * time.Second,
+	}
+
 	if cfg.TLSEnabled {
-		log.Printf("TLS enabled — listening on https://localhost:%s", cfg.Port)
-		if err := http.ListenAndServeTLS(":"+cfg.Port, cfg.TLSCertFile, cfg.TLSKeyFile, r); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		log.Printf("TLS disabled — listening on http://localhost:%s", cfg.Port)
-		if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-			log.Fatal(err)
+		srv.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
 		}
 	}
+
+	// Start server in a goroutine so we can listen for shutdown signals.
+	go func() {
+		var err error
+		if cfg.TLSEnabled {
+			log.Printf("TLS enabled — listening on https://localhost:%s", cfg.Port)
+			err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		} else {
+			log.Printf("TLS disabled — listening on http://localhost:%s", cfg.Port)
+			err = srv.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// ── Graceful shutdown ───────────────────────────────────────────
+	// Wait for SIGINT (Ctrl+C) or SIGTERM (docker stop / kill).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Printf("Received signal %s — shutting down gracefully...", sig)
+
+	// Give in-flight requests up to 30 seconds to finish.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	scheduler.Stop()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Forced shutdown: %v", err)
+	}
+	log.Println("Server stopped cleanly")
 }
 
 func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *services.AuthService, cfg *config.Config) *mux.Router {
