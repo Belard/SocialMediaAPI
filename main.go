@@ -73,10 +73,10 @@ func main() {
 	go func() {
 		var err error
 		if cfg.TLSEnabled {
-			log.Printf("TLS enabled — listening on https://localhost:%s", cfg.Port)
+			log.Printf("TLS enabled — listening on %s", cfg.BaseURL)
 			err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
 		} else {
-			log.Printf("TLS disabled — listening on http://localhost:%s", cfg.Port)
+			log.Printf("TLS disabled — listening on %s", cfg.BaseURL)
 			err = srv.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {
