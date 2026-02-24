@@ -26,6 +26,9 @@ MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' openssl req -x509 -newkey rsa:2048 \
     -subj "/CN=localhost" \
     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1"
 
+# Make the key readable inside Docker containers (bind-mounted as read-only).
+chmod 644 "$CERT_DIR/server.key"
+
 echo "Done. Files created:"
 echo "  Certificate: $CERT_DIR/server.crt"
 echo "  Private key: $CERT_DIR/server.key"
