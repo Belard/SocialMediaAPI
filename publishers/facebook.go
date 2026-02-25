@@ -541,6 +541,7 @@ func (f *FacebookPublisher) publishReel(post *models.Post, pageAccessToken, page
 		"video_id":     initResp.VideoID,
 		"title":        post.Content,
 		"description":  post.Content,
+		"video_state": "PUBLISHED",
 	}
 	jsonData, _ = json.Marshal(finishPayload)
 
