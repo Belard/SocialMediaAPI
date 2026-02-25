@@ -607,7 +607,7 @@ func (f *FacebookPublisher) publishStoryPhoto(post *models.Post, media *models.M
 	utils.Debugf("facebook story photo uploaded post_id=%s photo_id=%s", post.ID, photoID)
 
 	// Create the story with the uploaded photo
-	storyURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/stories", cfg.FacebookVersion, pageID)
+	storyURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/photo_stories", cfg.FacebookVersion, pageID)
 
 	payload := map[string]string{
 		"photo_id": photoID,
