@@ -372,7 +372,7 @@ func (i *InstagramPublisher) waitContainerReady(containerID, accessToken string)
 	cfg := config.Load()
 	endpoint := fmt.Sprintf("https://graph.instagram.com/%s/%s?fields=status_code&access_token=%s", cfg.InstagramVersion, containerID, url.QueryEscape(accessToken))
 
-	for attempt := 0; attempt < 10; attempt++ {
+	for attempt := 0; attempt < 30; attempt++ {
 		resp, err := i.httpClient().Get(endpoint)
 		if err != nil {
 			return err
@@ -399,7 +399,7 @@ func (i *InstagramPublisher) waitContainerReady(containerID, accessToken string)
 			return fmt.Errorf("Instagram media processing failed")
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	return fmt.Errorf("Instagram media processing timeout")

@@ -143,9 +143,10 @@ func setupRoutes(h *handlers.Handler, oh *oauth.OAuthHandler, authService *servi
 	r.HandleFunc("/oauth/success", oh.OAuthSuccessPage).Methods("GET")
 	r.HandleFunc("/oauth/error", oh.OAuthErrorPage).Methods("GET")
 
-	// Static file serving — signed URLs required (HMAC + expiration).
+	// Static file serving
+	uploadDir := config.Load().UploadDir
 	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/",
-		middleware.SignedFileServer(cfg.UploadDir, cfg.MediaSigningKey, authService)))
+		http.FileServer(http.Dir(uploadDir))))
 
 	// Protected routes
 	protected := r.PathPrefix("/api").Subrouter()
