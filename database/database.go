@@ -69,6 +69,18 @@ func (d *Database) createTables() error {
 				ALTER TABLE posts ADD COLUMN post_type VARCHAR(50) NOT NULL DEFAULT 'normal';
 			END IF;
 		END $$;`,
+		// Migration: add is_sponsored column to existing tables
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='is_sponsored') THEN
+				ALTER TABLE posts ADD COLUMN is_sponsored BOOLEAN NOT NULL DEFAULT false;
+			END IF;
+		END $$;`,
+		// Migration: add privacy_level column to existing tables
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='privacy_level') THEN
+				ALTER TABLE posts ADD COLUMN privacy_level VARCHAR(50) NOT NULL DEFAULT 'public';
+			END IF;
+		END $$;`,
 		`CREATE TABLE IF NOT EXISTS credentials (
 			id VARCHAR(255) PRIMARY KEY,
 			user_id VARCHAR(255) NOT NULL,

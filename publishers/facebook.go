@@ -225,8 +225,9 @@ func (f *FacebookPublisher) publishTextOnly(post *models.Post, pageAccessToken, 
 	url := fmt.Sprintf("https://graph.facebook.com/%s/%s/feed", cfg.FacebookVersion, pageID)
 	utils.Debugf("facebook posting text content post_id=%s page_id=%s", post.ID, pageID)
 
-	payload := map[string]string{
-		"message":      post.Content,
+	payload := map[string]interface{}{
+		"message":            post.Content,
+		"is_branded_content": post.IsSponsored,
 	}
 
 	jsonData, _ := json.Marshal(payload)
@@ -337,8 +338,9 @@ func (f *FacebookPublisher) publishMultiplePhotos(post *models.Post, pageAccessT
 	}
 
 	payload := map[string]interface{}{
-		"message":        post.Content,
-		"attached_media": attachedMedia,
+		"message":            post.Content,
+		"attached_media":     attachedMedia,
+		"is_branded_content": post.IsSponsored,
 	}
 
 	jsonData, _ := json.Marshal(payload)
@@ -536,12 +538,13 @@ func (f *FacebookPublisher) publishReel(post *models.Post, pageAccessToken, page
 	// Step 3: Publish (finish) the reel
 	finishURL := fmt.Sprintf("https://graph.facebook.com/%s/%s/video_reels", cfg.FacebookVersion, pageID)
 
-	finishPayload := map[string]string{
-		"upload_phase": "finish",
-		"video_id":     initResp.VideoID,
-		"title":        post.Content,
-		"description":  post.Content,
-		"video_state": "PUBLISHED",
+	finishPayload := map[string]interface{}{
+		"upload_phase":     "finish",
+		"video_id":         initResp.VideoID,
+		"title":            post.Content,
+		"description":      post.Content,
+		"video_state":      "PUBLISHED",
+		"is_branded_content": post.IsSponsored,
 	}
 	jsonData, _ = json.Marshal(finishPayload)
 

@@ -47,6 +47,24 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default privacy_level to "public" if not specified
+	if post.PrivacyLevel == "" {
+		post.PrivacyLevel = models.PrivacyPublic
+	}
+
+	// Validate privacy_level value
+	validPrivacy := map[models.PrivacyLevel]bool{
+		models.PrivacyPublic:    true,
+		models.PrivacyFollowers: true,
+		models.PrivacyFriends:   true,
+		models.PrivacyPrivate:   true,
+	}
+	if !validPrivacy[post.PrivacyLevel] {
+		utils.RespondWithError(w, http.StatusBadRequest,
+			"Invalid privacy_level. Must be 'public', 'followers', 'friends', or 'private'")
+		return
+	}
+
 	// Enforce platform restrictions based on post_type
 	if post.PostType == models.PostTypeNormal {
 		// Normal posts cannot be published to TikTok

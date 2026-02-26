@@ -37,6 +37,17 @@ const (
 	MediaVideo MediaType = "video"
 )
 
+// PrivacyLevel controls post visibility across platforms.
+// Each publisher maps these to platform-specific values.
+type PrivacyLevel string
+
+const (
+	PrivacyPublic    PrivacyLevel = "public"    // Visible to everyone
+	PrivacyFollowers PrivacyLevel = "followers" // Visible to followers only
+	PrivacyFriends   PrivacyLevel = "friends"   // Visible to mutual followers / close friends
+	PrivacyPrivate   PrivacyLevel = "private"   // Visible only to the creator
+)
+
 type User struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
@@ -58,18 +69,20 @@ type Media struct {
 }
 
 type Post struct {
-	ID           string     `json:"id"`
-	UserID       string     `json:"user_id"`
-	Content      string     `json:"content"`
-	PostType     PostType   `json:"post_type"`
-	MediaIDs     []string   `json:"media_ids,omitempty"`
-	Media        []*Media   `json:"media,omitempty"`
-	Platforms    []Platform `json:"platforms"`
-	Status       PostStatus `json:"status"`
-	ScheduledFor *time.Time `json:"scheduled_for,omitempty"`
-	PublishedAt  *time.Time `json:"published_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           string       `json:"id"`
+	UserID       string       `json:"user_id"`
+	Content      string       `json:"content"`
+	PostType     PostType     `json:"post_type"`
+	PrivacyLevel PrivacyLevel `json:"privacy_level"`
+	IsSponsored  bool         `json:"is_sponsored"`
+	MediaIDs     []string     `json:"media_ids,omitempty"`
+	Media        []*Media     `json:"media,omitempty"`
+	Platforms    []Platform   `json:"platforms"`
+	Status       PostStatus   `json:"status"`
+	ScheduledFor *time.Time   `json:"scheduled_for,omitempty"`
+	PublishedAt  *time.Time   `json:"published_at,omitempty"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
 }
 
 type PlatformCredentials struct {

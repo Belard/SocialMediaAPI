@@ -294,7 +294,7 @@
       "item": [
         {
           "name": "Create Normal Post (sets post_id)",
-          "description": "Creates a normal post. Normal posts support facebook, instagram, linkedin, twitter — but NOT tiktok. YouTube requires video media for normal posts.",
+          "description": "Creates a normal post. Normal posts support facebook, instagram, linkedin, twitter — but NOT tiktok. YouTube requires video media for normal posts. Set is_sponsored to true for branded/paid-partnership content. privacy_level options: public (default), followers, friends, private.",
           "event": [
             {
               "listen": "test",
@@ -318,7 +318,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman — normal post\",\n  \"post_type\": \"normal\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
+              "raw": "{\n  \"content\": \"Hello from Postman — normal post\",\n  \"post_type\": \"normal\",\n  \"privacy_level\": \"public\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": false\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/posts"
@@ -326,7 +326,7 @@
         },
         {
           "name": "Create Short Post / Reel (sets post_id)",
-          "description": "Creates a short-form video post. Published as a Reel on Instagram, a Reel on Facebook, a video on TikTok, and a YouTube Short. Twitter does not support shorts. Requires video media. Supports instagram, facebook, tiktok, and youtube.",
+          "description": "Creates a short-form video post. Published as a Reel on Instagram, a Reel on Facebook, a video on TikTok, and a YouTube Short. Twitter does not support shorts. Requires video media. Supports instagram, facebook, tiktok, and youtube. Set is_sponsored to true for branded/paid-partnership content. privacy_level options: public (default), followers, friends, private. TikTok validates against the user's available privacy settings.",
           "event": [
             {
               "listen": "test",
@@ -350,7 +350,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Check out this short video!\",\n  \"post_type\": \"short\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\", \"youtube\"],\n  \"media_ids\": [\"{{media_id}}\"]\n}",
+              "raw": "{\n  \"content\": \"Check out this short video!\",\n  \"post_type\": \"short\",\n  \"privacy_level\": \"public\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\", \"youtube\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": false\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/posts"
@@ -358,7 +358,7 @@
         },
         {
           "name": "Schedule Post (future)",
-          "description": "Schedules a post for future publishing. post_type defaults to 'normal' if omitted.",
+          "description": "Schedules a post for future publishing. post_type defaults to 'normal' if omitted. Set is_sponsored to true for branded/paid-partnership content. privacy_level defaults to 'public' if omitted.",
           "event": [
             {
               "listen": "test",
@@ -382,7 +382,103 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Scheduled post from Postman\",\n  \"post_type\": \"normal\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"scheduled_for\": \"2026-12-31T23:59:59Z\"\n}",
+              "raw": "{\n  \"content\": \"Scheduled post from Postman\",\n  \"post_type\": \"normal\",\n  \"privacy_level\": \"public\",\n  \"platforms\": [\"instagram\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": false,\n  \"scheduled_for\": \"2026-12-31T23:59:59Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Create Sponsored Post (sets post_id)",
+          "description": "Creates a sponsored/branded-content post. When is_sponsored is true: TikTok sets brand_content_toggle and brand_organic_toggle, Facebook sets is_branded_content, Instagram enables branded_content_tag, and YouTube sets paidProductPlacement. Twitter and LinkedIn do not have API-level sponsored flags.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Sponsored content — paid partnership\",\n  \"post_type\": \"short\",\n  \"privacy_level\": \"public\",\n  \"platforms\": [\"instagram\", \"facebook\", \"tiktok\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Create Story Post (sets post_id)",
+          "description": "Creates a story post. Stories are supported on facebook and instagram only. Requires at least one image or video media attachment. Set is_sponsored to true for branded/paid-partnership content. privacy_level defaults to 'public' if omitted.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Check out my story!\",\n  \"post_type\": \"story\",\n  \"privacy_level\": \"public\",\n  \"platforms\": [\"instagram\", \"facebook\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/posts"
+          }
+        },
+        {
+          "name": "Create Private TikTok Post (sets post_id)",
+          "description": "Creates a short-form video with privacy_level set to 'private'. On TikTok this maps to SELF_ONLY, on YouTube to 'private'. Valid privacy_level values: public, followers, friends, private. TikTok validates the chosen level against the user's available options via the creator_info API — if the level is unavailable it falls back to SELF_ONLY.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data.id) pm.collectionVariables.set('post_id', data.id);",
+                  "if (data.post_id) pm.collectionVariables.set('post_id', data.post_id);",
+                  "if (data.post && data.post.id) pm.collectionVariables.set('post_id', data.post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Private TikTok video — only I can see this\",\n  \"post_type\": \"short\",\n  \"privacy_level\": \"private\",\n  \"platforms\": [\"tiktok\"],\n  \"media_ids\": [\"{{media_id}}\"],\n  \"is_sponsored\": false\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/api/posts"

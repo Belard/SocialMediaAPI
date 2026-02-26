@@ -93,9 +93,9 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 	var postID string
 	var err error
 	if len(imageMedia) == 1 {
-		postID, err = i.publishSingleImage(post.Content, imageMedia[0].URL, cred.PlatformUserID, cred.AccessToken)
+		postID, err = i.publishSingleImage(post.Content, imageMedia[0].URL, cred.PlatformUserID, cred.AccessToken, post.IsSponsored)
 	} else {
-		postID, err = i.publishCarousel(post.Content, imageMedia, cred.PlatformUserID, cred.AccessToken)
+		postID, err = i.publishCarousel(post.Content, imageMedia, cred.PlatformUserID, cred.AccessToken, post.IsSponsored)
 	}
 
 	if err != nil {
@@ -141,12 +141,18 @@ func (i *InstagramPublisher) publishReel(post *models.Post, cred *models.Platfor
 		}
 	}
 
-	// Create a REELS media container
-	containerID, err := i.createMediaContainer(cred.PlatformUserID, cred.AccessToken, map[string]string{
+	// Create a REELS media container.
+	// When the post is sponsored, enable the branded-content tag so IG shows the
+	// paid-partnership label.
+	reelParams := map[string]string{
 		"media_type": "REELS",
 		"video_url":  videoMedia.URL,
 		"caption":    post.Content,
-	})
+	}
+	if post.IsSponsored {
+		reelParams["branded_content_tag_enabled"] = "true"
+	}
+	containerID, err := i.createMediaContainer(cred.PlatformUserID, cred.AccessToken, reelParams)
 	if err != nil {
 		return models.PublishResult{
 			Platform: models.Instagram,
@@ -210,6 +216,9 @@ func (i *InstagramPublisher) publishStory(post *models.Post, cred *models.Platfo
 	} else {
 		containerParams["image_url"] = media.URL
 	}
+	if post.IsSponsored {
+		containerParams["branded_content_tag_enabled"] = "true"
+	}
 
 	containerID, err := i.createMediaContainer(cred.PlatformUserID, cred.AccessToken, containerParams)
 	if err != nil {
@@ -245,11 +254,15 @@ func (i *InstagramPublisher) publishStory(post *models.Post, cred *models.Platfo
 	}
 }
 
-func (i *InstagramPublisher) publishSingleImage(caption, imageURL, instagramUserID, accessToken string) (string, error) {
-	containerID, err := i.createMediaContainer(instagramUserID, accessToken, map[string]string{
+func (i *InstagramPublisher) publishSingleImage(caption, imageURL, instagramUserID, accessToken string, isSponsored bool) (string, error) {
+	params := map[string]string{
 		"image_url": imageURL,
 		"caption":   caption,
-	})
+	}
+	if isSponsored {
+		params["branded_content_tag_enabled"] = "true"
+	}
+	containerID, err := i.createMediaContainer(instagramUserID, accessToken, params)
 	if err != nil {
 		return "", err
 	}
@@ -261,7 +274,7 @@ func (i *InstagramPublisher) publishSingleImage(caption, imageURL, instagramUser
 	return i.publishContainer(instagramUserID, accessToken, containerID)
 }
 
-func (i *InstagramPublisher) publishCarousel(caption string, media []*models.Media, instagramUserID, accessToken string) (string, error) {
+func (i *InstagramPublisher) publishCarousel(caption string, media []*models.Media, instagramUserID, accessToken string, isSponsored bool) (string, error) {
 	children := make([]string, 0, len(media))
 	for _, m := range media {
 		containerID, err := i.createMediaContainer(instagramUserID, accessToken, map[string]string{
@@ -277,11 +290,15 @@ func (i *InstagramPublisher) publishCarousel(caption string, media []*models.Med
 		children = append(children, containerID)
 	}
 
-	carouselContainerID, err := i.createMediaContainer(instagramUserID, accessToken, map[string]string{
+	carouselParams := map[string]string{
 		"media_type": "CAROUSEL",
 		"children":   strings.Join(children, ","),
 		"caption":    caption,
-	})
+	}
+	if isSponsored {
+		carouselParams["branded_content_tag_enabled"] = "true"
+	}
+	carouselContainerID, err := i.createMediaContainer(instagramUserID, accessToken, carouselParams)
 	if err != nil {
 		return "", err
 	}

@@ -42,6 +42,7 @@ type youtubeVideoSnippet struct {
 type youtubeVideoStatus struct {
 	PrivacyStatus           string `json:"privacyStatus"`
 	SelfDeclaredMadeForKids bool   `json:"selfDeclaredMadeForKids"`
+	PaidProductPlacement    bool   `json:"paidProductPlacement,omitempty"`
 }
 
 // youtubeVideoResource is the metadata sent when inserting a video.
@@ -186,8 +187,9 @@ func (y *YouTubePublisher) uploadVideo(post *models.Post, media *models.Media, a
 			CategoryID:  "22", // "People & Blogs" — safe default
 		},
 		Status: &youtubeVideoStatus{
-			PrivacyStatus:           "public",
+			PrivacyStatus:           mapToYouTubePrivacy(post.PrivacyLevel),
 			SelfDeclaredMadeForKids: false,
+			PaidProductPlacement:    post.IsSponsored,
 		},
 	}
 
@@ -314,4 +316,18 @@ func (y *YouTubePublisher) parseYouTubeError(body []byte) string {
 		}
 	}
 	return string(body)
+}
+
+// mapToYouTubePrivacy maps the generic PrivacyLevel to YouTube's privacyStatus.
+func mapToYouTubePrivacy(level models.PrivacyLevel) string {
+	switch level {
+	case models.PrivacyPublic:
+		return "public"
+	case models.PrivacyFollowers, models.PrivacyFriends:
+		return "unlisted"
+	case models.PrivacyPrivate:
+		return "private"
+	default:
+		return "public"
+	}
 }
