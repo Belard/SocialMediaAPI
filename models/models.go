@@ -16,10 +16,11 @@ const (
 type PostStatus string
 
 const (
-	StatusDraft     PostStatus = "draft"
-	StatusScheduled PostStatus = "scheduled"
-	StatusPublished PostStatus = "published"
-	StatusFailed    PostStatus = "failed"
+	StatusDraft      PostStatus = "draft"
+	StatusScheduled  PostStatus = "scheduled"
+	StatusPublishing PostStatus = "publishing"
+	StatusPublished  PostStatus = "published"
+	StatusFailed     PostStatus = "failed"
 )
 
 type PostType string

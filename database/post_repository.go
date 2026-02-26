@@ -147,3 +147,52 @@ func (d *Database) GetScheduledPosts() ([]*models.Post, error) {
 
 	return posts, nil
 }
+
+// ClaimScheduledPosts atomically transitions due scheduled posts to "publishing"
+// status and returns them. This prevents duplicate publishes when the scheduler
+// fires again before the previous batch finishes.
+func (d *Database) ClaimScheduledPosts() ([]*models.Post, error) {
+	query := `UPDATE posts
+			  SET status = $1, updated_at = $2
+			  WHERE status = $3 AND scheduled_for <= $4
+			  RETURNING id, user_id, content, post_type, privacy_level, is_sponsored,
+			            media_ids, platforms, status, scheduled_for, published_at,
+			            created_at, updated_at`
+
+	now := time.Now()
+	rows, err := d.DB.Query(query, models.StatusPublishing, now, models.StatusScheduled, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []*models.Post{}
+	for rows.Next() {
+		post := &models.Post{}
+		var platforms []string
+		var mediaIDs []string
+
+		err := rows.Scan(&post.ID, &post.UserID, &post.Content, &post.PostType,
+			&post.PrivacyLevel, &post.IsSponsored, pq.Array(&mediaIDs),
+			pq.Array(&platforms), &post.Status, &post.ScheduledFor, &post.PublishedAt,
+			&post.CreatedAt, &post.UpdatedAt)
+
+		if err != nil {
+			continue
+		}
+
+		post.Platforms = make([]models.Platform, len(platforms))
+		for i, p := range platforms {
+			post.Platforms[i] = models.Platform(p)
+		}
+
+		if mediaIDs != nil {
+			post.MediaIDs = mediaIDs
+			post.Media, _ = d.GetMediaByIDs(mediaIDs)
+		}
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}

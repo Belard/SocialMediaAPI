@@ -23,9 +23,9 @@ func NewScheduler(db *database.Database, publisher *PublisherService) *Scheduler
 
 func (s *Scheduler) Start() {
 	s.cron.AddFunc("@every 1m", func() {
-		posts, err := s.db.GetScheduledPosts()
+		posts, err := s.db.ClaimScheduledPosts()
 		if err != nil {
-			log.Printf("Error fetching scheduled posts: %v", err)
+			log.Printf("Error claiming scheduled posts: %v", err)
 			return
 		}
 
