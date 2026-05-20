@@ -2,6 +2,7 @@ package publishers
 
 import (
 	"SocialMediaAPI/models"
+	"SocialMediaAPI/utils"
 	"fmt"
 	"time"
 
@@ -18,6 +19,16 @@ func (l *LinkedInPublisher) Publish(post *models.Post, cred *models.PlatformCred
 			Platform: models.LinkedIn,
 			Success:  false,
 			Message:  "Missing LinkedIn credentials",
+		}
+	}
+
+	// Check if token is expired
+	tokenValidator := utils.NewTokenValidator()
+	if tokenValidator.IsTokenExpired(cred) {
+		return models.PublishResult{
+			Platform: models.LinkedIn,
+			Success:  false,
+			Message:  "LinkedIn token has expired. Please reconnect your account via OAuth",
 		}
 	}
 

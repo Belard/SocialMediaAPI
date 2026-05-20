@@ -4,12 +4,45 @@ Backend application in Go for publishing content across multiple social media pl
 
 ## Features ✨
 
-- 🔐 JWT Authentication
-- 📸 Image & Video Upload (Instagram, TikTok)
-- 🌐 Multi-platform publishing (Twitter, Facebook, LinkedIn, Instagram, TikTok)
-- ⏰ Post Scheduling
+- 🔐 JWT Authentication with OAuth 2.0 support
+- 📸 Image & Video Upload (Instagram, TikTok, YouTube)
+- 🌐 Multi-platform publishing (Twitter, Facebook, LinkedIn, Instagram, TikTok, YouTube)
+- ⏰ Post Scheduling with cron-based execution
+- 🔄 Automatic token expiration detection across all platforms
 - 💾 PostgreSQL Database
 - 🐳 Docker Support
+- ✅ Encrypted token storage
+
+## Token Expiration Management 🔄
+
+All platform tokens are automatically monitored for expiration:
+
+- **Real-time checks**: Every publish attempt validates token freshness with a 5-minute buffer
+- **Frontend visibility**: `GET /api/credentials/status` returns `is_expired` and `expires_at` for each platform
+- **Automatic refresh**: Facebook tokens are automatically refreshed via OAuth exchange; other platforms require user re-authentication
+- **Graceful errors**: Expired tokens return clear error messages directing users to reconnect via OAuth
+
+### Check Token Status Before Publishing
+
+```bash
+curl http://localhost:3001/api/credentials/status \
+  -H "Authorization: Bearer <token>"
+```
+
+Response includes expiration info per platform:
+```json
+{
+  "platform": "instagram",
+  "connected": true,
+  "expires_at": "2026-03-21T14:30:00Z",
+  "is_expired": false
+}
+```
+
+**Frontend Integration Tips:**
+- Display warnings for platforms where `is_expired: true`
+- Show countdown timers using `expires_at`
+- Prompt users to reconnect via OAuth before publishing
 
 ## Quick Start 🏃
 

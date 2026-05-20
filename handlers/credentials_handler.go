@@ -52,7 +52,7 @@ func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	query := `SELECT platform, created_at FROM credentials WHERE user_id = $1`
+	query := `SELECT platform, created_at, expires_at FROM credentials WHERE user_id = $1`
 
 	rows, err := h.db.DB.Query(query, userID)
 	if err != nil {
@@ -62,20 +62,28 @@ func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) 
 	defer rows.Close()
 
 	type ConnectedPlatform struct {
-		Platform  string    `json:"platform"`
-		Connected bool      `json:"connected"`
-		CreatedAt time.Time `json:"created_at,omitempty"`
+		Platform  string     `json:"platform"`
+		Connected bool       `json:"connected"`
+		CreatedAt time.Time  `json:"created_at,omitempty"`
+		ExpiresAt *time.Time `json:"expires_at,omitempty"`
+		IsExpired bool       `json:"is_expired"`
 	}
 
-	connectedMap := make(map[string]time.Time)
+	type credentialInfo struct {
+		createdAt time.Time
+		expiresAt *time.Time
+	}
+
+	connectedMap := make(map[string]credentialInfo)
 	for rows.Next() {
 		var platform string
 		var createdAt time.Time
-		if err := rows.Scan(&platform, &createdAt); err != nil {
+		var expiresAt *time.Time
+		if err := rows.Scan(&platform, &createdAt, &expiresAt); err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Error reading credentials")
 			return
 		}
-		connectedMap[platform] = createdAt
+		connectedMap[platform] = credentialInfo{createdAt: createdAt, expiresAt: expiresAt}
 	}
 	if err := rows.Err(); err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Error reading credentials")
@@ -93,11 +101,18 @@ func (h *Handler) GetConnectedPlatforms(w http.ResponseWriter, r *http.Request) 
 
 	platforms := []ConnectedPlatform{}
 	for _, platform := range allPlatforms {
-		if createdAt, connected := connectedMap[string(platform)]; connected {
+		if credInfo, connected := connectedMap[string(platform)]; connected {
+			isExpired := false
+			if credInfo.expiresAt != nil {
+				buffer := 5 * time.Minute
+				isExpired = time.Now().Add(buffer).After(*credInfo.expiresAt)
+			}
 			platforms = append(platforms, ConnectedPlatform{
 				Platform:  string(platform),
 				Connected: true,
-				CreatedAt: createdAt,
+				CreatedAt: credInfo.createdAt,
+				ExpiresAt: credInfo.expiresAt,
+				IsExpired: isExpired,
 			})
 		} else {
 			platforms = append(platforms, ConnectedPlatform{

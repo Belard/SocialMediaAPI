@@ -266,7 +266,9 @@ On error the user is redirected to `/oauth/error?error=<type>&description=<msg>`
 
 ### `POST /api/credentials`
 
-Manually save platform credentials (useful for platforms where OAuth is handled externally, e.g. LinkedIn).
+Manually save platform credentials for **testing/development purposes**. In production, credentials are automatically saved by OAuth callbacks.
+
+> **Recommended**: Use OAuth flows (`GET /api/auth/{platform}`) instead of manual credential entry for production use.
 
 | Field              | Type   | Required | Description                                                  |
 |--------------------|--------|----------|--------------------------------------------------------------|
@@ -307,7 +309,7 @@ curl -X POST http://localhost:3001/api/credentials \
 
 ### `GET /api/credentials/status`
 
-List all platforms and whether the user has connected credentials.
+List all platforms and whether the user has connected credentials, including token expiration status.
 
 **Request:**
 
@@ -323,13 +325,23 @@ curl http://localhost:3001/api/credentials/status \
   "user_id": "a1b2c3d4-...",
   "platforms": [
     { "platform": "twitter",   "connected": false },
-    { "platform": "facebook",  "connected": true,  "created_at": "2026-02-20T10:00:00Z" },
+    { "platform": "facebook",  "connected": true,  "created_at": "2026-02-20T10:00:00Z", "expires_at": "2026-03-20T10:00:00Z", "is_expired": false },
     { "platform": "linkedin",  "connected": false },
-    { "platform": "instagram", "connected": true,  "created_at": "2026-02-21T14:30:00Z" },
+    { "platform": "instagram", "connected": true,  "created_at": "2026-02-21T14:30:00Z", "expires_at": "2026-03-21T14:30:00Z", "is_expired": true },
     { "platform": "tiktok",    "connected": false }
   ]
 }
 ```
+
+**Response Fields:**
+
+| Field        | Type      | Description                                                                                |
+|--------------|-----------|--------------------------------------------------------------------------------------------|
+| `platform`   | string    | Platform name (twitter, facebook, linkedin, instagram, tiktok, youtube)                    |
+| `connected`  | boolean   | Whether the user has active credentials for this platform                                 |
+| `created_at` | timestamp | When credentials were first saved (only if `connected: true`)                             |
+| `expires_at` | timestamp | When the platform token expires (only if `connected: true`). Null if token doesn't expire |
+| `is_expired` | boolean   | Whether token is expired or will expire within 5 minutes (uses 5-min buffer for warnings) |
 
 ---
 
@@ -358,6 +370,64 @@ curl -X DELETE http://localhost:3001/api/credentials/disconnect \
 {
   "message": "facebook disconnected successfully"
 }
+```
+
+---
+
+## Token Expiration & Refresh Behavior
+
+### Overview
+
+All platform tokens are monitored for expiration **before every publish attempt**. The system uses a **5-minute buffer**, meaning tokens are considered expired if they will expire within the next 5 minutes.
+
+### Per-Platform Behavior
+
+| Platform | Expiration Check | Auto-Refresh | User Action if Expired |
+|----------|------------------|--------------|------------------------|
+| Facebook | ✅ Yes           | ✅ Yes (via OAuth exchange)  | Reconnect if refresh fails |
+| Instagram| ✅ Yes           | ❌ No       | Reconnect via OAuth |
+| TikTok   | ✅ Yes           | ❌ No       | Reconnect via OAuth |
+| Twitter  | ✅ Yes           | ❌ No       | Reconnect via OAuth |
+| LinkedIn | ✅ Yes           | ❌ No       | Reconnect via OAuth |
+| YouTube  | ✅ Yes           | ❌ No       | Reconnect via OAuth |
+
+### Publish with Expired Token
+
+If a token is expired when `POST /api/posts` is called:
+
+**Response `400 Bad Request` (or relevant error code):**
+
+```json
+{
+  "success": false,
+  "results": [
+    {
+      "platform": "instagram",
+      "success": false,
+      "message": "Instagram token has expired. Please reconnect your account via OAuth"
+    }
+  ]
+}
+```
+
+### Frontend Best Practices
+
+1. **Check before publishing**: Call `GET /api/credentials/status` to check token freshness
+2. **Display warnings**: Show UI alerts when `is_expired: true`
+3. **Show countdowns**: Calculate time remaining using `expires_at` timestamp
+4. **Prompt re-auth**: Direct users to initiate OAuth for expired platforms
+
+### Facebook Token Refresh Example
+
+Facebook tokens can be automatically refreshed via OAuth exchange:
+
+```bash
+# Initiate Facebook OAuth to exchange short-lived token for long-lived token
+curl http://localhost:3001/api/auth/facebook \
+  -H "Authorization: Bearer <token>"
+
+# User completes OAuth consent → callback automatically saves refreshed token
+# Token now valid for ~60 days
 ```
 
 ---

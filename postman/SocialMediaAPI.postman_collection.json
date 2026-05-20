@@ -184,6 +184,7 @@
       "item": [
         {
           "name": "Save Credentials",
+          "description": "Manually save platform credentials (testing/development only). In production, credentials are automatically saved by OAuth callbacks. Recommended: use OAuth flows (GET /api/auth/{platform}) instead.",
           "request": {
             "method": "POST",
             "header": [
@@ -200,6 +201,7 @@
         },
         {
           "name": "Get Connected Platforms",
+          "description": "Returns all connected platform credentials with expiration status. Use is_expired to warn users when tokens are about to expire (5-minute buffer). expires_at shows the exact expiration time.",
           "request": {
             "method": "GET",
             "header": [

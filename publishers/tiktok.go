@@ -53,6 +53,17 @@ func (t *TikTokPublisher) Publish(post *models.Post, cred *models.PlatformCreden
 		}
 	}
 
+	// Check if token is expired
+	tokenValidator := utils.NewTokenValidator()
+	if tokenValidator.IsTokenExpired(cred) {
+		utils.Warnf("tiktok token expired post_id=%s user_id=%s", post.ID, post.UserID)
+		return models.PublishResult{
+			Platform: models.TikTok,
+			Success:  false,
+			Message:  "TikTok token has expired. Please reconnect your account via OAuth",
+		}
+	}
+
 	// TikTok only supports short-form video posts
 	if post.PostType != models.PostTypeShort {
 		utils.Warnf("tiktok publish rejected: unsupported post_type post_id=%s post_type=%s", post.ID, post.PostType)

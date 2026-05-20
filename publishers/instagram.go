@@ -3,6 +3,7 @@ package publishers
 import (
 	"SocialMediaAPI/config"
 	"SocialMediaAPI/models"
+	"SocialMediaAPI/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -53,6 +54,17 @@ func (i *InstagramPublisher) Publish(post *models.Post, cred *models.PlatformCre
 			Platform: models.Instagram,
 			Success:  false,
 			Message:  "Instagram account not connected correctly. Reconnect via OAuth to fetch Instagram Business Account ID",
+		}
+	}
+
+	// Check if token is expired
+	tokenValidator := utils.NewTokenValidator()
+	if tokenValidator.IsTokenExpired(cred) {
+		utils.Warnf("instagram token expired post_id=%s user_id=%s", post.ID, post.UserID)
+		return models.PublishResult{
+			Platform: models.Instagram,
+			Success:  false,
+			Message:  "Instagram token has expired. Please reconnect your account via OAuth",
 		}
 	}
 
